@@ -6,14 +6,18 @@ SET pg_trgm.similarity_threshold = 0.5;
 CREATE TABLE IF NOT EXISTS golden_records
 (
     uid uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    first_name              VARCHAR(100),
-    middle_name             VARCHAR(100),
-    surname                 VARCHAR(100),
-    dob                     VARCHAR(20),
-    sex                     VARCHAR(10),
-    chiefdom_code           VARCHAR(256),
-    cell_phone              VARCHAR(20),
     pin                     VARCHAR(256),
+    first_name              VARCHAR(256),
+    middle_name             VARCHAR(256),
+    surname                 VARCHAR(256),
+    sex                     VARCHAR(10),
+    dob                     VARCHAR(20),
+    birth_time              VARCHAR(20),
+    cell_phone              VARCHAR(20),
+    inkhundla               VARCHAR(256),
+    chiefdom                VARCHAR(256),
+    nationality             VARCHAR(256),
+    city                    VARCHAR(256),
     aux_date_created        timestamp,
     aux_auto_update_enabled BOOLEAN DEFAULT TRUE,
     aux_id                  VARCHAR(50)
@@ -24,7 +28,7 @@ CREATE INDEX golden_records_first_name_trgm_idx     ON golden_records USING gin(
 CREATE INDEX golden_records_middle_name_trgm_idx    ON golden_records USING gin(middle_name   gin_trgm_ops);
 CREATE INDEX golden_records_surname_trgm_idx        ON golden_records USING gin(surname       gin_trgm_ops);
 CREATE INDEX golden_records_dob_trgm_idx            ON golden_records USING gin(dob           gin_trgm_ops);
-CREATE INDEX golden_records_chiefdom_code_trgm_idx  ON golden_records USING gin(chiefdom_code gin_trgm_ops);
+CREATE INDEX golden_records_chiefdom_trgm_idx  ON golden_records USING gin(chiefdom gin_trgm_ops);
 CREATE INDEX golden_records_cell_phone_trgm_idx     ON golden_records USING gin(cell_phone    gin_trgm_ops);
 CREATE INDEX golden_records_pin_trgm_idx            ON golden_records USING gin(pin           gin_trgm_ops);
 
@@ -41,14 +45,18 @@ CREATE TABLE IF NOT EXISTS source_id
 CREATE TABLE IF NOT EXISTS encounters
 (
     uid                 uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    first_name          VARCHAR(100),
-    middle_name         VARCHAR(100),
-    surname             VARCHAR(100),
-    dob                 VARCHAR(20),
-    sex                 VARCHAR(10),
-    chiefdom_code       VARCHAR(256),
-    cell_phone          VARCHAR(20),
-    pin                 VARCHAR(256),
+    pin                     VARCHAR(256),
+    first_name              VARCHAR(256),
+    middle_name             VARCHAR(256),
+    surname                 VARCHAR(256),
+    sex                     VARCHAR(10),
+    dob                     VARCHAR(20),
+    birth_time              VARCHAR(20),
+    cell_phone              VARCHAR(20),
+    inkhundla               VARCHAR(256),
+    chiefdom                VARCHAR(256),
+    nationality             VARCHAR(256),
+    city                    VARCHAR(256),
     golden_record_uid   uuid,
     score               real,
     source_id_uid       uuid,

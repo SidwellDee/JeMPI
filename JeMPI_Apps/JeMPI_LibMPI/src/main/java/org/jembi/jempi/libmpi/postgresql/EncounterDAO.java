@@ -25,20 +25,24 @@ public final class EncounterDAO extends GenericDAO<EncounterDAO.SqlEncounter> {
       final var sql = String.format(
             Locale.ROOT,
             """
-            INSERT INTO %s (first_name,
+            INSERT INTO %s (pin,
+                            first_name,
                             middle_name,
                             surname,
-                            dob,
                             sex,
-                            chiefdom_code,
+                            dob,
+                            birth_time,
                             cell_phone,
-                            pin,
+                            inkhundla,
+                            chiefdom,
+                            nationality,
+                            city,
                             golden_record_uid,
                             score,
                             source_id_uid,
                             aux_date_created,
                             aux_id)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?);
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);
             """.stripIndent(), getTableName());
       try (var pstmt = client.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
          for (int i = 0; i < Config.FIELDS_CONFIG.demographicFields.size(); i++) {
@@ -49,11 +53,11 @@ public final class EncounterDAO extends GenericDAO<EncounterDAO.SqlEncounter> {
                pstmt.setString(i + 1, entity.getDemographicField(i));
             }
          }
-         pstmt.setObject(9, entity.goldenRecordUid);
-         pstmt.setFloat(10, entity.score());
-         pstmt.setObject(11, entity.sourceIdUid());
-         pstmt.setTimestamp(12, Timestamp.valueOf(entity.auxDateCreated));
-         pstmt.setString(13, entity.auxId());
+         pstmt.setObject(13, entity.goldenRecordUid);
+         pstmt.setFloat(14, entity.score());
+         pstmt.setObject(15, entity.sourceIdUid());
+         pstmt.setTimestamp(16, Timestamp.valueOf(entity.auxDateCreated));
+         pstmt.setString(17, entity.auxId());
          final var affectedRows = pstmt.executeUpdate();
          if (affectedRows > 0) {
             try (ResultSet rs = pstmt.getGeneratedKeys()) {
@@ -102,6 +106,10 @@ public final class EncounterDAO extends GenericDAO<EncounterDAO.SqlEncounter> {
                   rs.getString(Config.FIELDS_CONFIG.demographicFields.get(5).scName()),
                   rs.getString(Config.FIELDS_CONFIG.demographicFields.get(6).scName()),
                   rs.getString(Config.FIELDS_CONFIG.demographicFields.get(7).scName()),
+                  rs.getString(Config.FIELDS_CONFIG.demographicFields.get(8).scName()),
+                  rs.getString(Config.FIELDS_CONFIG.demographicFields.get(9).scName()),
+                  rs.getString(Config.FIELDS_CONFIG.demographicFields.get(10).scName()),
+                  rs.getString(Config.FIELDS_CONFIG.demographicFields.get(11).scName()),
                   id,
                   rs.getFloat("score"),
                   rs.getObject("source_id_uid", UUID.class),
@@ -132,6 +140,10 @@ public final class EncounterDAO extends GenericDAO<EncounterDAO.SqlEncounter> {
                   rs.getString(Config.FIELDS_CONFIG.demographicFields.get(5).scName()),
                   rs.getString(Config.FIELDS_CONFIG.demographicFields.get(6).scName()),
                   rs.getString(Config.FIELDS_CONFIG.demographicFields.get(7).scName()),
+                  rs.getString(Config.FIELDS_CONFIG.demographicFields.get(8).scName()),
+                  rs.getString(Config.FIELDS_CONFIG.demographicFields.get(9).scName()),
+                  rs.getString(Config.FIELDS_CONFIG.demographicFields.get(10).scName()),
+                  rs.getString(Config.FIELDS_CONFIG.demographicFields.get(11).scName()),
                   id,
                   rs.getFloat("score"),
                   rs.getObject("source_id_uid", UUID.class),
@@ -180,14 +192,18 @@ public final class EncounterDAO extends GenericDAO<EncounterDAO.SqlEncounter> {
 
    public record SqlEncounter(
          UUID uid,
+         String pin,
          String firstName,
          String middleName,
          String surname,
-         String dob,
          String sex,
-         String chiefdomCode,
+         String dob,
+         String birthTime,
          String cellPhone,
-         String pin,
+         String inkhundla,
+         String chiefdom,
+         String nationality,
+         String city,
          UUID goldenRecordUid,
          float score,
          UUID sourceIdUid,
@@ -205,14 +221,18 @@ public final class EncounterDAO extends GenericDAO<EncounterDAO.SqlEncounter> {
 
       String getDemographicField(final int index) {
          return switch (index) {
-            case 0 -> firstName();
-            case 1 -> middleName();
-            case 2 -> surname();
-            case 3 -> dob();
+            case 0 -> pin();
+            case 1 -> firstName();
+            case 2 -> middleName();
+            case 3 -> surname();
             case 4 -> sex();
-            case 5 -> chiefdomCode();
-            case 6 -> cellPhone();
-            case 7 -> pin();
+            case 5 -> dob();
+            case 6 -> birthTime();
+            case 7 -> cellPhone();
+            case 8 -> inkhundla();
+            case 9 -> chiefdom();
+            case 10 -> nationality();
+            case 11 -> city();
             default -> throw new IllegalArgumentException();
          };
       }

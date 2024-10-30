@@ -27,18 +27,22 @@ public final class GoldenRecordDAO extends GenericDAO<GoldenRecordDAO.SqlGoldenR
       final var sql = String.format(
             Locale.ROOT,
             """
-            INSERT INTO %s (first_name,
+            INSERT INTO %s (pin,
+                            first_name,
                             middle_name,
                             surname,
-                            dob,
                             sex,
-                            chiefdom_code,
+                            dob,
+                            birth_time,
                             cell_phone,
-                            pin,
+                            inkhundla,
+                            chiefdom,
+                            nationality,
+                            city,
                             aux_date_created,
                             aux_auto_update_enabled,
                             aux_id)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?);
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);
             """, getTableName());
       try (var pstmt = client.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
          for (int i = 0; i < Config.FIELDS_CONFIG.demographicFields.size(); i++) {
@@ -49,9 +53,9 @@ public final class GoldenRecordDAO extends GenericDAO<GoldenRecordDAO.SqlGoldenR
                pstmt.setString(i + 1, entity.getDemographicField(i));
             }
          }
-         pstmt.setTimestamp(9, Timestamp.valueOf(entity.auxDateCreated));
-         pstmt.setBoolean(10, entity.auxAutoUpdate());
-         pstmt.setString(11, entity.auxId());
+         pstmt.setTimestamp(13, Timestamp.valueOf(entity.auxDateCreated));
+         pstmt.setBoolean(14, entity.auxAutoUpdate());
+         pstmt.setString(15, entity.auxId());
          final var affectedRows = pstmt.executeUpdate();
          if (affectedRows > 0) {
             try (ResultSet rs = pstmt.getGeneratedKeys()) {
@@ -112,6 +116,10 @@ public final class GoldenRecordDAO extends GenericDAO<GoldenRecordDAO.SqlGoldenR
                   rs.getString(Config.FIELDS_CONFIG.demographicFields.get(5).scName()),
                   rs.getString(Config.FIELDS_CONFIG.demographicFields.get(6).scName()),
                   rs.getString(Config.FIELDS_CONFIG.demographicFields.get(7).scName()),
+                  rs.getString(Config.FIELDS_CONFIG.demographicFields.get(8).scName()),
+                  rs.getString(Config.FIELDS_CONFIG.demographicFields.get(9).scName()),
+                  rs.getString(Config.FIELDS_CONFIG.demographicFields.get(10).scName()),
+                  rs.getString(Config.FIELDS_CONFIG.demographicFields.get(11).scName()),
                   rs.getTimestamp(Config.FIELDS_CONFIG.auxGoldenRecordFields.get(0).scName()).toLocalDateTime(),
                   rs.getBoolean(Config.FIELDS_CONFIG.auxGoldenRecordFields.get(1).scName()),
                   rs.getString(Config.FIELDS_CONFIG.userAuxGoldenRecordFields.getFirst().scName()));
@@ -125,7 +133,7 @@ public final class GoldenRecordDAO extends GenericDAO<GoldenRecordDAO.SqlGoldenR
          final DemographicData demographicData) throws SQLException {
       final var list = new LinkedList<SqlGoldenRecord>();
       final var pin = demographicData.fields.get(Config.FIELDS_CONFIG.findIndexOfDemographicField("pin")).value();
-      if (!(StringUtils.isBlank(pin) || "999999999999999".equals(pin))) {
+      if (!(StringUtils.isBlank(pin) || "9999999999999".equals(pin) || "1111111111111".equals(pin))) {
          final var sql = "select * from golden_records where pin = ?;";
          try (PreparedStatement preparedStatement = client.prepareStatement(sql)) {
             preparedStatement.setString(1, demographicData.fields.get(DEMOGRAPHIC_IDX_PIN).value());
@@ -142,6 +150,10 @@ public final class GoldenRecordDAO extends GenericDAO<GoldenRecordDAO.SqlGoldenR
                      rs.getString(Config.FIELDS_CONFIG.demographicFields.get(5).scName()),
                      rs.getString(Config.FIELDS_CONFIG.demographicFields.get(6).scName()),
                      rs.getString(Config.FIELDS_CONFIG.demographicFields.get(7).scName()),
+                     rs.getString(Config.FIELDS_CONFIG.demographicFields.get(8).scName()),
+                     rs.getString(Config.FIELDS_CONFIG.demographicFields.get(9).scName()),
+                     rs.getString(Config.FIELDS_CONFIG.demographicFields.get(10).scName()),
+                     rs.getString(Config.FIELDS_CONFIG.demographicFields.get(11).scName()),
                      rs.getTimestamp(Config.FIELDS_CONFIG.auxGoldenRecordFields.get(0).scName()).toLocalDateTime(),
                      rs.getBoolean(Config.FIELDS_CONFIG.auxGoldenRecordFields.get(1).scName()),
                      rs.getString(Config.FIELDS_CONFIG.userAuxGoldenRecordFields.getFirst().scName())));
@@ -162,7 +174,7 @@ public final class GoldenRecordDAO extends GenericDAO<GoldenRecordDAO.SqlGoldenR
                       similarity(middle_name,?)   > 0.6  and  similarity(surname,?)     > 0.6  or
                       similarity(dob,?)           > 0.8                                        or
                       similarity(cell_phone,?)    > 0.8                                        or
-                      similarity(chiefdom_code,?) > 0.8  and  similarity(cell_phone,?)  > 0.8;
+                      similarity(chiefdom,?) > 0.8  and  similarity(cell_phone,?)  > 0.8;
                       """.stripIndent();
       try (PreparedStatement pstmt = client.prepareStatement(sql)) {
          pstmt.setString(1, demographicData.fields.get(DEMOGRAPHIC_IDX_FIRST_NAME).value());
@@ -188,6 +200,10 @@ public final class GoldenRecordDAO extends GenericDAO<GoldenRecordDAO.SqlGoldenR
                   rs.getString(Config.FIELDS_CONFIG.demographicFields.get(5).scName()),
                   rs.getString(Config.FIELDS_CONFIG.demographicFields.get(6).scName()),
                   rs.getString(Config.FIELDS_CONFIG.demographicFields.get(7).scName()),
+                  rs.getString(Config.FIELDS_CONFIG.demographicFields.get(8).scName()),
+                  rs.getString(Config.FIELDS_CONFIG.demographicFields.get(9).scName()),
+                  rs.getString(Config.FIELDS_CONFIG.demographicFields.get(10).scName()),
+                  rs.getString(Config.FIELDS_CONFIG.demographicFields.get(11).scName()),
                   rs.getTimestamp(Config.FIELDS_CONFIG.auxGoldenRecordFields.get(0).scName()).toLocalDateTime(),
                   rs.getBoolean(Config.FIELDS_CONFIG.auxGoldenRecordFields.get(1).scName()),
                   rs.getString(Config.FIELDS_CONFIG.userAuxGoldenRecordFields.getFirst().scName())));
@@ -214,14 +230,18 @@ public final class GoldenRecordDAO extends GenericDAO<GoldenRecordDAO.SqlGoldenR
 
    public record SqlGoldenRecord(
          UUID uid,
+         String pin,
          String firstName,
          String middleName,
          String surname,
-         String dob,
          String sex,
-         String chiefdomCode,
+         String dob,
+         String birthTime,
          String cellPhone,
-         String pin,
+         String inkhundla,
+         String chiefdom,
+         String nationality,
+         String city,
          java.time.LocalDateTime auxDateCreated,
          Boolean auxAutoUpdate,
          String auxId) {
@@ -240,6 +260,10 @@ public final class GoldenRecordDAO extends GenericDAO<GoldenRecordDAO.SqlGoldenR
               demographicFields.get(5),
               demographicFields.get(6),
               demographicFields.get(7),
+              demographicFields.get(8),
+              demographicFields.get(9),
+              demographicFields.get(10),
+              demographicFields.get(11),
               auxDateCreated,
               auxAutoUpdate,
               userAuxFields.getFirst()
@@ -248,14 +272,18 @@ public final class GoldenRecordDAO extends GenericDAO<GoldenRecordDAO.SqlGoldenR
 
       String getDemographicField(final int index) {
          return switch (index) {
-            case 0 -> firstName();
-            case 1 -> middleName();
-            case 2 -> surname();
-            case 3 -> dob();
+            case 0 -> pin();
+            case 1 -> firstName();
+            case 2 -> middleName();
+            case 3 -> surname();
             case 4 -> sex();
-            case 5 -> chiefdomCode();
-            case 6 -> cellPhone();
-            case 7 -> pin();
+            case 5 -> dob();
+            case 6 -> birthTime();
+            case 7 -> cellPhone();
+            case 8 -> inkhundla();
+            case 9 -> chiefdom();
+            case 10 -> nationality();
+            case 11 -> city();
             default -> throw new IllegalArgumentException();
          };
       }

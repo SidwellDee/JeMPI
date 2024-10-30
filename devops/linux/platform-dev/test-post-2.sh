@@ -1,4 +1,4 @@
-!/bin/bash
+#!/bin/bash
 set -e
 set -m
 
@@ -17,13 +17,18 @@ curl --location 'http://localhost:50000/JeMPI/crLink' \
         "auxClinicalData": "RANDOM DATA"
     },
     "demographicData": {
-        "givenName": "aaa",
-        "familyName": "bbb",
-        "gender": "male",
+	"pin": "pin-1234",
+        "firstName": "John",
+        "middleName": "bbb",
+	"surname": "Doe",
+	"sex": "male",
         "dob": "20000202",
-        "city": "Cape Town",
-        "phoneNumber": "12345556",
-        "nationalId": "123456789012345"
+	"birthTime": "00:00:00",
+	"cellPhone": "7661112",
+	"inkhundla": "Maseyisini",
+	"chiefdom": "Shiselweni II",
+	"nationality": "Kingdom of Eswatini",
+        "city": "Mbabane"
     }
 }
 '
