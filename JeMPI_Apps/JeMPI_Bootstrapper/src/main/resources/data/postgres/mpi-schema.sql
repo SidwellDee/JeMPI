@@ -11,9 +11,9 @@ CREATE TABLE IF NOT EXISTS golden_records
     surname                 VARCHAR(100),
     dob                     VARCHAR(20),
     sex                     VARCHAR(10),
-    chiefdom_code           VARCHAR(10),
+    chiefdom_code           VARCHAR(256),
     cell_phone              VARCHAR(20),
-    pin                     VARCHAR(20),
+    pin                     VARCHAR(256),
     aux_date_created        timestamp,
     aux_auto_update_enabled BOOLEAN DEFAULT TRUE,
     aux_id                  VARCHAR(50)
@@ -32,8 +32,8 @@ CREATE INDEX golden_records_pin_trgm_idx            ON golden_records USING gin(
 CREATE TABLE IF NOT EXISTS source_id
 (
     uid               uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-    facility_code     VARCHAR(50),
-    patient_id        VARCHAR(50),
+    facility_code     VARCHAR(256),
+    patient_id        VARCHAR(256),
     golden_record_uid uuid,
     CONSTRAINT source_id_constraint_golden_record_uid FOREIGN KEY(golden_record_uid) REFERENCES golden_records(uid)
 );
@@ -46,9 +46,9 @@ CREATE TABLE IF NOT EXISTS encounters
     surname             VARCHAR(100),
     dob                 VARCHAR(20),
     sex                 VARCHAR(10),
-    chiefdom_code       VARCHAR(10),
+    chiefdom_code       VARCHAR(256),
     cell_phone          VARCHAR(20),
-    pin                 VARCHAR(20),
+    pin                 VARCHAR(256),
     golden_record_uid   uuid,
     score               real,
     source_id_uid       uuid,
