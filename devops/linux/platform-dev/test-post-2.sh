@@ -21,7 +21,7 @@ curl --location 'http://localhost:50000/JeMPI/crLink' \
         "firstName": "John",
         "middleName": "bbb",
 	"surname": "Doe",
-	"sex": "male",
+	"sex": "maleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
         "dob": "20000202",
 	"birthTime": "00:00:00",
 	"cellPhone": "7661112",
