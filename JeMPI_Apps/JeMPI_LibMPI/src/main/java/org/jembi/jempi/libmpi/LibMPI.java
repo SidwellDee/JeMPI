@@ -7,7 +7,6 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-//import org.jembi.jempi.libmpi.dgraph.LibDgraph;
 import org.jembi.jempi.libmpi.postgresql.LibPostgreSQL;
 import org.jembi.jempi.shared.kafka.MyKafkaProducer;
 import org.jembi.jempi.shared.models.*;
@@ -18,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
 import static org.jembi.jempi.shared.utils.AppUtils.OBJECT_MAPPER;
 
@@ -27,6 +27,7 @@ public final class LibMPI {
    private final LibMPIClientInterface client;
    private final MyKafkaProducer<String, AuditEvent> topicAuditEvents;
    private final MyKafkaProducer<String, Validation> topicValidation;
+   private final MyKafkaProducer<String, MpiMediator> topicMpiMediator;
    private final AuditTrailBridge auditTrailUtil;
 
 
@@ -48,6 +49,12 @@ public final class LibMPI {
                                               new StringSerializer(),
                                               new JsonPojoSerializer<>(),
                                               kafkaClientId);
+      topicMpiMediator = new MyKafkaProducer<>(kafkaBootstrapServers,
+                                               GlobalConstants.TOPIC_MPI_MEDIATOR,
+                                               new StringSerializer(),
+                                               new JsonPojoSerializer<>(),
+                                               kafkaClientId);
+
 //      client = new LibDgraph(level, host, port);
       client = new LibPostgreSQL(level, host, port);
       client.connect();
@@ -62,7 +69,33 @@ public final class LibMPI {
 
       LinkingAuditEventData linkingEvent = new LinkingAuditEventData(message, interactionID, goldenID, score, linkingRule);
       auditTrailUtil.sendAuditEvent(GlobalConstants.AuditEventType.LINKING_EVENT, linkingEvent);
+
+      final var event = switch (linkingRule) {
+         case NEW, DETERMINISTIC, PROBABILISTIC, EXPLICIT_GID, EXPLICIT_SOURCE_ID -> "Interaction -> new GoldenID";
+         case NOTIFICATION -> "Interaction -> update GoldenID";
+         case UPDATE -> null;
+      };
+      if (event != null) {
+         try {
+            final var mpiMediatorMessage = new MpiMediator(LocalDateTime.now(),
+                                                           interactionID,
+                                                           goldenID,
+                                                           event);
+            try {
+               final var json = OBJECT_MAPPER.writeValueAsString(mpiMediatorMessage);
+               LOGGER.debug("mpiMediator: {}", json);
+            } catch (JsonProcessingException e) {
+               LOGGER.error(e.getLocalizedMessage(), e);
+            }
+            topicMpiMediator.produceSync(interactionID, mpiMediatorMessage);
+         } catch (ExecutionException | InterruptedException e) {
+            LOGGER.error(e.getLocalizedMessage(), e);
+         }
+      } else {
+         LOGGER.debug("{} {}", linkingRule, message);
+      }
    }
+
 
    /*
     * *****************************************************************************
@@ -280,7 +313,7 @@ public final class LibMPI {
     * *
     */
 
-   public Either<MpiGeneralError,  ApiModels.ApiCivilRecordResponse> insertCivilRecord(
+   public Either<MpiGeneralError, ApiModels.ApiCivilRecordResponse> insertCivilRecord(
          final String auxId,
          final DemographicData demographicData) {
       return client.insertCivilRecord(auxId, demographicData);

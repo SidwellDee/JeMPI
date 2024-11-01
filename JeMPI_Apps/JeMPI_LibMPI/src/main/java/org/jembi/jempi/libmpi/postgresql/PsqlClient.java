@@ -23,17 +23,11 @@ final class PsqlClient {
    }
 
    boolean connect() {
-      LOGGER.debug("{}", POSTGRESQL_IP);
-      LOGGER.debug("{}", POSTGRESQL_PORT);
-      LOGGER.debug("{}", POSTGRESQL_USER);
-      LOGGER.debug("{}", POSTGRESQL_PASSWORD);
-      LOGGER.debug("{}", POSTGRESQL_DB);
       final var url = String.format(Locale.ROOT,
                                     "jdbc:postgresql://%s:%d/%s",
                                     POSTGRESQL_IP,
                                     POSTGRESQL_PORT,
                                     POSTGRESQL_DB);
-      LOGGER.debug("{}", url);
       if (connection == null) {
          try {
             connection = DriverManager.getConnection(url, POSTGRESQL_USER, POSTGRESQL_PASSWORD);

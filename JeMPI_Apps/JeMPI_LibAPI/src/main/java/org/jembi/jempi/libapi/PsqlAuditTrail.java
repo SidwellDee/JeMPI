@@ -9,7 +9,10 @@ import org.jembi.jempi.shared.utils.AuditTrailBridge;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 
 import static org.jembi.jempi.shared.models.GlobalConstants.PSQL_TABLE_AUDIT_TRAIL;
 
@@ -30,8 +33,9 @@ final class PsqlAuditTrail {
       psqlClient.connect();
       final var list = new ArrayList<ApiModels.ApiAuditTrail.LinkingAuditEntry>();
       try (PreparedStatement preparedStatement = psqlClient.prepareStatement(String.format(Locale.ROOT,
-                                                                                          "SELECT * FROM %s WHERE eventType = ? AND eventData ->> 'goldenID' = ?",
-                                                                                          PSQL_TABLE_AUDIT_TRAIL))) {
+                                                                                           "SELECT * FROM %s WHERE eventType = "
+                                                                                           + "? AND eventData ->> 'goldenID' = ?",
+                                                                                           PSQL_TABLE_AUDIT_TRAIL))) {
          preparedStatement.setString(1, GlobalConstants.AuditEventType.LINKING_EVENT.name());
          preparedStatement.setString(2, uid);
          ResultSet rs = preparedStatement.executeQuery();
@@ -41,15 +45,16 @@ final class PsqlAuditTrail {
             final var eventType = rs.getString(4);
             final var eventData = rs.getString(5);
             if (Objects.equals(eventType, GlobalConstants.AuditEventType.LINKING_EVENT.name())) {
-               LinkingAuditEventData deserializeEventData = AuditTrailBridge.getDeserializeEventData(eventData, LinkingAuditEventData.class);
+               LinkingAuditEventData deserializeEventData =
+                     AuditTrailBridge.getDeserializeEventData(eventData, LinkingAuditEventData.class);
                list.add(new ApiModels.ApiAuditTrail.LinkingAuditEntry(
-                       insertTime,
-                       createdTime,
-                       deserializeEventData.interaction_id(),
-                       deserializeEventData.goldenID(),
-                       deserializeEventData.message(),
-                       deserializeEventData.score(),
-                       deserializeEventData.linkingRule().name()
+                     insertTime,
+                     createdTime,
+                     deserializeEventData.interactionID(),
+                     deserializeEventData.goldenID(),
+                     deserializeEventData.message(),
+                     deserializeEventData.score(),
+                     deserializeEventData.linkingRule().name()
                ));
             }
          }
@@ -63,9 +68,9 @@ final class PsqlAuditTrail {
       psqlClient.connect();
       final var list = new ArrayList<ApiModels.ApiAuditTrail.LinkingAuditEntry>();
       try (PreparedStatement preparedStatement = psqlClient.prepareStatement(String.format(
-                                                                                 Locale.ROOT,
-                                                                                 "SELECT * FROM %s WHERE eventType = ? AND eventData ->> 'interaction_id' = ?",
-                                                                                 PSQL_TABLE_AUDIT_TRAIL))) {
+            Locale.ROOT,
+            "SELECT * FROM %s WHERE eventType = ? AND eventData ->> 'interaction_id' = ?",
+            PSQL_TABLE_AUDIT_TRAIL))) {
          preparedStatement.setString(1, GlobalConstants.AuditEventType.LINKING_EVENT.name());
          preparedStatement.setString(2, uid);
          ResultSet rs = preparedStatement.executeQuery();
@@ -76,15 +81,16 @@ final class PsqlAuditTrail {
             final var eventData = rs.getString(5);
 
             if (Objects.equals(eventType, GlobalConstants.AuditEventType.LINKING_EVENT.name())) {
-               LinkingAuditEventData deserializeEventData = AuditTrailBridge.getDeserializeEventData(eventData, LinkingAuditEventData.class);
+               LinkingAuditEventData deserializeEventData =
+                     AuditTrailBridge.getDeserializeEventData(eventData, LinkingAuditEventData.class);
                list.add(new ApiModels.ApiAuditTrail.LinkingAuditEntry(
-                       insertTime,
-                       createdTime,
-                       deserializeEventData.interaction_id(),
-                       deserializeEventData.goldenID(),
-                       deserializeEventData.message(),
-                       deserializeEventData.score(),
-                       deserializeEventData.linkingRule().name()
+                     insertTime,
+                     createdTime,
+                     deserializeEventData.interactionID(),
+                     deserializeEventData.goldenID(),
+                     deserializeEventData.message(),
+                     deserializeEventData.score(),
+                     deserializeEventData.linkingRule().name()
                ));
             }
          }
