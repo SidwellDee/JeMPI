@@ -44,7 +44,7 @@ final class Routes {
          final ActorRef<BackEnd.Request> backEnd) {
       return entity(Jackson.unmarshaller(ApiModels.ApiCalculateScoresRequest.class),
                     obj -> onComplete(Ask.postCalculateScores(actorSystem, backEnd, obj), result -> {
-                       if (!result.isSuccess()) {
+                       if (result.isFailure()) {
                           return handleError(result.failed().get());
                        }
                        return complete(StatusCodes.OK, result.get(), JSON_MARSHALLER);
@@ -56,7 +56,7 @@ final class Routes {
          final ActorRef<BackEnd.Request> backEnd) {
       return entity(Jackson.unmarshaller(ApiModels.ApiInteractionUid.class),
                     obj -> onComplete(Ask.findCandidates(actorSystem, backEnd, obj), result -> {
-                       if (!result.isSuccess()) {
+                       if (result.isFailure()) {
                           return handleError(result.failed().get());
                        }
                        return result.get()
@@ -74,7 +74,7 @@ final class Routes {
          final ActorRef<BackEnd.Request> backEnd) {
       return entity(Jackson.unmarshaller(OBJECT_MAPPER, ApiModels.ApiCrLinkToGidUpdateRequest.class),
                     obj -> onComplete(Ask.postCrLinkToGidUpdate(actorSystem, backEnd, obj), result -> {
-                       if (!result.isSuccess()) {
+                       if (result.isFailure()) {
                           return handleError(result.failed().get());
                        }
                        return result.get()
@@ -92,7 +92,7 @@ final class Routes {
          final ActorRef<BackEnd.Request> backEnd) {
       return entity(Jackson.unmarshaller(OBJECT_MAPPER, ApiModels.ApiCrLinkBySourceIdRequest.class),
                     obj -> onComplete(Ask.postCrLinkBySourceId(actorSystem, backEnd, obj), result -> {
-                       if (!result.isSuccess()) {
+                       if (result.isFailure()) {
                           return handleError(result.failed().get());
                        }
                        return result.get()
@@ -110,7 +110,7 @@ final class Routes {
          final ActorRef<BackEnd.Request> backEnd) {
       return entity(Jackson.unmarshaller(OBJECT_MAPPER, ApiModels.ApiCrLinkBySourceIdUpdateRequest.class),
                     obj -> onComplete(Ask.postCrLinkBySourceIdUpdate(actorSystem, backEnd, obj), result -> {
-                       if (!result.isSuccess()) {
+                       if (result.isFailure()) {
                           return handleError(result.failed().get());
                        }
                        return result.get()
@@ -128,7 +128,7 @@ final class Routes {
          final ActorRef<BackEnd.Request> backEnd) {
       return entity(Jackson.unmarshaller(OBJECT_MAPPER, ApiModels.ApiCrCandidatesRequest.class),
                     obj -> onComplete(Ask.getCrCandidates(actorSystem, backEnd, obj), result -> {
-                       if (!result.isSuccess()) {
+                       if (result.isFailure()) {
                           return handleError(result.failed().get());
                        }
                        return result.get()
@@ -148,7 +148,7 @@ final class Routes {
          final ActorRef<BackEnd.Request> backEnd) {
       return entity(Jackson.unmarshaller(OBJECT_MAPPER, ApiModels.ApiCrFindRequest.class),
                     obj -> onComplete(Ask.getCrFind(actorSystem, backEnd, obj), result -> {
-                       if (!result.isSuccess()) {
+                       if (result.isFailure()) {
                           return handleError(result.failed().get());
                        }
                        return result.get()
@@ -169,7 +169,7 @@ final class Routes {
          final ActorRef<BackEnd.Request> backEnd) {
       return entity(Jackson.unmarshaller(OBJECT_MAPPER, ApiModels.ApiCrRegisterRequest.class),
                     obj -> onComplete(Ask.postCrRegister(actorSystem, backEnd, obj), result -> {
-                       if (!result.isSuccess()) {
+                       if (result.isFailure()) {
                           return handleError(result.failed().get());
                        }
                        return result.get()
@@ -187,7 +187,7 @@ final class Routes {
          final ActorRef<BackEnd.Request> backEnd) {
       return entity(Jackson.unmarshaller(OBJECT_MAPPER, ApiModels.LinkInteractionSyncBody.class),
                     obj -> onComplete(Ask.postLinkInteraction(actorSystem, backEnd, obj), result -> {
-                       if (!result.isSuccess()) {
+                       if (result.isFailure()) {
                           return handleError(result.failed().get());
                        }
                        return result.get()
@@ -207,7 +207,7 @@ final class Routes {
          final ActorRef<BackEnd.Request> backEnd) {
       return entity(Jackson.unmarshaller(ApiModels.ApiCrUpdateFieldsRequest.class),
                     obj -> onComplete(Ask.postCrUpdateField(actorSystem, backEnd, obj), result -> {
-                       if (!result.isSuccess()) {
+                       if (result.isFailure()) {
                           return handleError(result.failed().get());
                        }
                        return result.get()
@@ -228,7 +228,7 @@ final class Routes {
          final ActorRef<BackEnd.Request> backEnd) {
       return entity(Jackson.unmarshaller(ApiModels.ApiCivilRecordRequest.class),
                     obj -> onComplete(Ask.postCivilRecord(actorSystem, backEnd, obj), result -> {
-                       if (!result.isSuccess()) {
+                       if (result.isFailure()) {
                           return handleError(result.failed().get());
                        }
                        return result.get()

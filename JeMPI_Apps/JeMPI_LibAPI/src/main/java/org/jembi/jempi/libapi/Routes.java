@@ -132,7 +132,7 @@ public final class Routes {
          final ActorRef<BackEnd.Event> backEnd) {
       return onComplete(Ask.countRecords(actorSystem, backEnd),
                         result -> {
-                           if (!result.isSuccess()) {
+                           if (result.isFailure()) {
                               return handleError(result.failed().get());
                            }
                            return complete(StatusCodes.OK,
