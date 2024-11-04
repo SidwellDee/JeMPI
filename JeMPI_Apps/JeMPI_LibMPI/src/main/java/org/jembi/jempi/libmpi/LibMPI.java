@@ -1,6 +1,5 @@
 package org.jembi.jempi.libmpi;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import io.vavr.control.Either;
 import io.vavr.control.Option;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -19,8 +18,6 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
-import static org.jembi.jempi.shared.utils.AppUtils.OBJECT_MAPPER;
-
 public final class LibMPI {
 
    private static final Logger LOGGER = LogManager.getLogger(LibMPI.class);
@@ -30,13 +27,13 @@ public final class LibMPI {
    private final MyKafkaProducer<String, MpiMediator> topicMpiMediator;
    private final AuditTrailBridge auditTrailUtil;
 
-
    public LibMPI(
          final Level level,
          final String[] host,
          final int[] port,
          final String kafkaBootstrapServers,
-         final String kafkaClientId) {
+         final String kafkaClientId,
+         final PgConfig pgConfig) {
       LOGGER.info("{}", "LibMPI Constructor");
       topicAuditEvents = new MyKafkaProducer<>(kafkaBootstrapServers,
                                                GlobalConstants.TOPIC_AUDIT_TRAIL,
@@ -56,7 +53,7 @@ public final class LibMPI {
                                                kafkaClientId);
 
 //      client = new LibDgraph(level, host, port);
-      client = new LibPostgreSQL(level, host, port);
+      client = new LibPostgreSQL(pgConfig.pgIp, pgConfig.pgPort, pgConfig.pgUser, pgConfig.pgPassword, pgConfig.pgDb);
       client.connect();
    }
 
@@ -81,12 +78,6 @@ public final class LibMPI {
                                                            interactionID,
                                                            goldenID,
                                                            event);
-            try {
-               final var json = OBJECT_MAPPER.writeValueAsString(mpiMediatorMessage);
-               LOGGER.debug("mpiMediator: {}", json);
-            } catch (JsonProcessingException e) {
-               LOGGER.error(e.getLocalizedMessage(), e);
-            }
             topicMpiMediator.produceSync(interactionID, mpiMediatorMessage);
          } catch (ExecutionException | InterruptedException e) {
             LOGGER.error(e.getLocalizedMessage(), e);
@@ -94,6 +85,11 @@ public final class LibMPI {
       } else {
          LOGGER.debug("{} {}", linkingRule, message);
       }
+   }
+
+   public Option<MpiGeneralError> dropAll() {
+      client.connect();
+      return client.dropAll();
    }
 
 
@@ -105,17 +101,17 @@ public final class LibMPI {
     * *
     */
 
-   public Option<MpiGeneralError> dropAll() {
-      client.connect();
-      return client.dropAll();
-   }
-
    public Option<MpiGeneralError> dropAllData() {
       return client.dropAllData();
    }
 
    public Option<MpiGeneralError> createSchema() {
       return client.createSchema();
+   }
+
+   public Either<MpiGeneralError, Long> countInteractions() {
+      client.connect();
+      return client.countInteractions();
    }
 
    /*
@@ -126,41 +122,36 @@ public final class LibMPI {
     * *
     */
 
-   public long countInteractions() {
-      client.connect();
-      return client.countInteractions();
-   }
-
-   public long countGoldenRecords() {
+   public Either<MpiGeneralError, Long> countGoldenRecords() {
       client.connect();
       return client.countGoldenRecords();
    }
 
-   public List<SourceId> findSourceId(
+   public Either<MpiGeneralError, List<SourceId>> findSourceId(
          final String facility,
          final String patient) {
       client.connect();
       return client.findSourceId(facility, patient);
    }
 
-   public List<ExpandedSourceId> findExpandedSourceIdList(
+   public Either<MpiGeneralError, List<ExpandedSourceId>> findExpandedSourceIdList(
          final String facility,
          final String patient) {
       client.connect();
       return client.findExpandedSourceIdList(facility, patient);
    }
 
-   public Interaction findInteraction(final String iid) {
+   public Either<MpiGeneralError, Interaction> findInteraction(final String iid) {
       client.connect();
       return client.findInteraction(iid);
    }
 
-   public List<Interaction> findInteractions(final List<String> iidList) {
+   public Either<MpiGeneralError, List<Interaction>> findInteractions(final List<String> iidList) {
       client.connect();
       return client.findInteractions(iidList);
    }
 
-   public List<ExpandedInteraction> findExpandedInteractions(final List<String> interactionIDs) {
+   public Either<MpiGeneralError, List<ExpandedInteraction>> findExpandedInteractions(final List<String> interactionIDs) {
       client.connect();
       return client.findExpandedInteractions(interactionIDs);
    }
@@ -187,51 +178,50 @@ public final class LibMPI {
       return Either.right(results.get().data());
    }
 
-   public ExpandedGoldenRecord findExpandedGoldenRecord(final String goldenId) {
+   public Either<MpiGeneralError, ExpandedGoldenRecord> findExpandedGoldenRecord(final String goldenId) {
       client.connect();
       final var results = client.findExpandedGoldenRecords(List.of(goldenId));
-      if (!results.data().isEmpty()) {
-         return results.data().getFirst();
+      if (results.isLeft()) {
+         return Either.left(results.getLeft());
       }
-      return null;
+      if (!results.get().data().isEmpty()) {
+         return Either.right(results.get().data().getFirst());
+      }
+      return Either.right(null);
    }
 
-   public List<ExpandedGoldenRecord> findExpandedGoldenRecords(final List<String> goldenIds) {
+   public Either<MpiGeneralError, List<ExpandedGoldenRecord>> findExpandedGoldenRecords(final List<String> goldenIds) {
       client.connect();
-      return client.findExpandedGoldenRecords(goldenIds).data();
+      final var results = client.findExpandedGoldenRecords(goldenIds);
+      if (results.isLeft()) {
+         return Either.left(results.getLeft());
+      }
+      return Either.right(client.findExpandedGoldenRecords(goldenIds).get().data());
    }
 
-   public String postGoldenRecord(final RestoreGoldenRecords goldenRecord) {
+   public Either<MpiGeneralError, String> postGoldenRecord(final RestoreGoldenRecords goldenRecord) {
       client.connect();
       return client.restoreGoldenRecord(goldenRecord);
    }
 
-   public List<String> findGoldenIds() {
+   public Either<MpiGeneralError, List<String>> findGoldenIds() {
       client.connect();
       return client.findGoldenIds();
    }
 
-   public List<String> fetchGoldenIds(
+   public Either<MpiGeneralError, List<String>> fetchGoldenIds(
          final long offset,
          final long length) {
       client.connect();
       return client.fetchGoldenIds(offset, length);
    }
 
-   public List<GoldenRecord> findLinkCandidates(final DemographicData demographicData) {
-      LOGGER.debug("client connect()");
+   public Either<MpiGeneralError, List<GoldenRecord>> findLinkCandidates(final DemographicData demographicData) {
       client.connect();
-      try {
-         final var json = OBJECT_MAPPER.writeValueAsString(demographicData);
-         LOGGER.debug(json);
-      } catch (JsonProcessingException e) {
-         LOGGER.error(e.getLocalizedMessage(), e);
-      }
-      LOGGER.debug("findLinkCandidates()");
       return client.findLinkCandidates(demographicData);
    }
 
-   public List<GoldenRecord> findMatchCandidates(final DemographicData demographicData) {
+   public Either<MpiGeneralError, List<GoldenRecord>> findMatchCandidates(final DemographicData demographicData) {
       client.connect();
       return client.findMatchCandidates(demographicData);
    }
@@ -245,7 +235,7 @@ public final class LibMPI {
       return Either.right(results.get().data());
    }
 
-   public LibMPIPaginatedResultSet<ExpandedGoldenRecord> simpleSearchGoldenRecords(
+   public Either<MpiGeneralError, LibMPIPaginatedResultSet<ExpandedGoldenRecord>> simpleSearchGoldenRecords(
          final List<ApiModels.ApiSearchParameter> params,
          final Integer offset,
          final Integer limit,
@@ -253,10 +243,10 @@ public final class LibMPI {
          final Boolean sortAsc) {
       client.connect();
       final var results = client.simpleSearchGoldenRecords(params, offset, limit, sortBy, sortAsc);
-      return new LibMPIPaginatedResultSet<>(results.data(), results.pagination().getFirst());
+      return Either.right(new LibMPIPaginatedResultSet<>(results.get().data(), results.get().pagination().getFirst()));
    }
 
-   public LibMPIPaginatedResultSet<ExpandedGoldenRecord> customSearchGoldenRecords(
+   public Either<MpiGeneralError, LibMPIPaginatedResultSet<ExpandedGoldenRecord>> customSearchGoldenRecords(
          final List<ApiModels.ApiSimpleSearchRequestPayload> params,
          final Integer offset,
          final Integer limit,
@@ -264,10 +254,10 @@ public final class LibMPI {
          final Boolean sortAsc) {
       client.connect();
       final var results = client.customSearchGoldenRecords(params, offset, limit, sortBy, sortAsc);
-      return new LibMPIPaginatedResultSet<>(results.data(), results.pagination().getFirst());
+      return Either.right(new LibMPIPaginatedResultSet<>(results.get().data(), results.get().pagination().getFirst()));
    }
 
-   public LibMPIPaginatedResultSet<Interaction> simpleSearchInteractions(
+   public Either<MpiGeneralError, LibMPIPaginatedResultSet<Interaction>> simpleSearchInteractions(
          final List<ApiModels.ApiSearchParameter> params,
          final Integer offset,
          final Integer limit,
@@ -275,10 +265,10 @@ public final class LibMPI {
          final Boolean sortAsc) {
       client.connect();
       final var results = client.simpleSearchInteractions(params, offset, limit, sortBy, sortAsc);
-      return new LibMPIPaginatedResultSet<>(results.data(), results.pagination().getFirst());
+      return Either.right(new LibMPIPaginatedResultSet<>(results.get().data(), results.get().pagination().getFirst()));
    }
 
-   public LibMPIPaginatedResultSet<Interaction> customSearchInteractions(
+   public Either<MpiGeneralError, LibMPIPaginatedResultSet<Interaction>> customSearchInteractions(
          final List<ApiModels.ApiSimpleSearchRequestPayload> params,
          final Integer offset,
          final Integer limit,
@@ -286,10 +276,10 @@ public final class LibMPI {
          final Boolean sortAsc) {
       client.connect();
       final var results = client.customSearchInteractions(params, offset, limit, sortBy, sortAsc);
-      return new LibMPIPaginatedResultSet<>(results.data(), results.pagination().getFirst());
+      return Either.right(new LibMPIPaginatedResultSet<>(results.get().data(), results.get().pagination().getFirst()));
    }
 
-   public LibMPIPaginatedResultSet<String> filterGids(
+   public Either<MpiGeneralError, LibMPIPaginatedResultSet<String>> filterGids(
          final List<ApiModels.ApiSearchParameter> params,
          final LocalDateTime createdAt,
          final PaginationOptions paginationOptions) {
@@ -297,12 +287,18 @@ public final class LibMPI {
       return client.filterGids(params, createdAt, paginationOptions);
    }
 
-   public PaginatedGIDsWithInteractionCount filterGidsWithInteractionCount(
+   public Either<MpiGeneralError, PaginatedGIDsWithInteractionCount> filterGidsWithInteractionCount(
          final List<ApiModels.ApiSearchParameter> params,
          final LocalDateTime createdAt,
          final PaginationOptions paginationOptions) {
       client.connect();
       return client.filterGidsWithInteractionCount(params, createdAt, paginationOptions);
+   }
+
+   public Either<MpiGeneralError, ApiModels.ApiCivilRecordResponse> insertCivilRecord(
+         final String auxId,
+         final DemographicData demographicData) {
+      return client.insertCivilRecord(auxId, demographicData);
    }
 
    /*
@@ -313,20 +309,17 @@ public final class LibMPI {
     * *
     */
 
-   public Either<MpiGeneralError, ApiModels.ApiCivilRecordResponse> insertCivilRecord(
-         final String auxId,
-         final DemographicData demographicData) {
-      return client.insertCivilRecord(auxId, demographicData);
-   }
-
-   public boolean setScore(
+   public Option<MpiGeneralError> setScore(
          final String interactionID,
          final String goldenID,
          final float oldScore,
          final float newScore) {
-      client.connect();
+      final var connectError = client.connect();
+      if (connectError.isDefined()) {
+         return connectError;
+      }
       final var result = client.setScore(interactionID, goldenID, newScore);
-      if (result) {
+      if (result.isEmpty()) {
          sendAuditEvent(interactionID,
                         goldenID,
                         "score: %.5f -> %.5f".formatted(oldScore, newScore),
@@ -343,33 +336,38 @@ public final class LibMPI {
       return result;
    }
 
-   public boolean updateGoldenRecordField(
+   public Option<MpiGeneralError> updateGoldenRecordField(
          final String goldenId,
          final String fieldName,
          final String newValue) {
-      client.connect();
-      if (client.updateGoldenRecordField(goldenId, fieldName, newValue)) {
+      final var connectError = client.connect();
+      if (connectError.isDefined()) {
+         return connectError;
+      }
+      final var updateError = client.updateGoldenRecordField(goldenId, fieldName, newValue);
+      if (updateError.isEmpty()) {
          sendAuditEvent(null,
                         goldenId,
                         "Update Golden Record Field: %s -> %s".formatted(fieldName, newValue),
                         -1.0F,
                         LinkingRule.UPDATE);
-         return true;
       }
-      return false;
+      return updateError;
    }
 
-
-   public boolean updateGoldenRecordField(
+   public Option<MpiGeneralError> updateGoldenRecordField(
          final String interactionId,
          final String goldenId,
          final String fieldName,
          final String oldValue,
          final String newValue,
          final String alias) {
-      client.connect();
-      final var result = client.updateGoldenRecordField(goldenId, fieldName, newValue);
-      if (result) {
+      final var connectError = client.connect();
+      if (connectError.isDefined()) {
+         return connectError;
+      }
+      final var updateError = client.updateGoldenRecordField(goldenId, fieldName, newValue);
+      if (updateError.isEmpty()) {
          sendAuditEvent(interactionId, goldenId, "%s: '%s' -> '%s'".formatted(alias, oldValue, newValue),
                         -1.0F,
                         LinkingRule.UPDATE);
@@ -378,14 +376,17 @@ public final class LibMPI {
                         -1.0F,
                         LinkingRule.UPDATE);
       }
-      return result;
+      return updateError;
    }
 
    public Either<MpiGeneralError, LinkInfo> linkToNewGoldenRecord(
          final String currentGoldenId,
          final String interactionId,
          final Float score) {
-      client.connect();
+      final var connectError = client.connect();
+      if (connectError.isDefined()) {
+         return Either.left(connectError.get());
+      }
       if (score == null) {
          LOGGER.error("Missing score");
          return Either.left(new MpiServiceError.NoScoreGivenError("Missing Score"));
@@ -416,7 +417,10 @@ public final class LibMPI {
          final String newGoldenID,
          final String interactionID,
          final Float score) {
-      client.connect();
+      final var connectError = client.connect();
+      if (connectError.isDefined()) {
+         return Either.left(connectError.get());
+      }
       if (score == null) {
          LOGGER.error("No score");
          return Either.left(new MpiServiceError.NoScoreGivenError("No score"));
@@ -443,27 +447,30 @@ public final class LibMPI {
       return result;
    }
 
-   public LinkInfo createInteractionAndLinkToExistingGoldenRecord(
+   public Either<MpiGeneralError, LinkInfo> createInteractionAndLinkToExistingGoldenRecord(
          final Interaction interaction,
          final LibMPIClientInterface.GoldenIdScore goldenIdScore,
          final boolean deterministicValidation,
          final float probabilisticValidation,
          final LinkingRule linkingRule) {
-      client.connect();
+      final var connectError = client.connect();
+      if (connectError.isDefined()) {
+         return Either.left(connectError.get());
+      }
       final var result = client.createInteractionAndLinkToExistingGoldenRecord(interaction, goldenIdScore);
-      if (result != null) {
-         sendAuditEvent(result.interactionUID(),
-                        result.goldenUID(),
+      if (result.isRight()) {
+         sendAuditEvent(result.get().interactionUID(),
+                        result.get().goldenUID(),
                         String.format(Locale.ROOT,
                                       "Interaction -> Existing GoldenRecord (%.5f)  /  Validation: Deterministic(%s), "
                                       + "Probabilistic(%.3f)",
-                                      result.score(),
+                                      result.get().score(),
                                       deterministicValidation,
-                                      probabilisticValidation), result.score(), linkingRule);
+                                      probabilisticValidation), result.get().score(), linkingRule);
 
          topicValidation.produceAsync(UUID.randomUUID().toString(),
-                                      new Validation(result.interactionUID(),
-                                                     result.goldenUID(),
+                                      new Validation(result.get().interactionUID(),
+                                                     result.get().goldenUID(),
                                                      deterministicValidation,
                                                      probabilisticValidation),
                                       (metadata, exception) -> {
@@ -481,14 +488,17 @@ public final class LibMPI {
       return result;
    }
 
-   public LinkInfo createInteractionAndLinkToClonedGoldenRecord(
+   public Either<MpiGeneralError, LinkInfo> createInteractionAndLinkToClonedGoldenRecord(
          final Interaction interaction,
          final float score) {
-      client.connect();
+      final var connectError = client.connect();
+      if (connectError.isDefined()) {
+         return Either.left(connectError.get());
+      }
       final var result = client.createInteractionAndLinkToClonedGoldenRecord(interaction, score);
-      if (result != null) {
-         sendAuditEvent(result.interactionUID(),
-                        result.goldenUID(),
+      if (result.isRight()) {
+         sendAuditEvent(result.get().interactionUID(),
+                        result.get().goldenUID(),
                         String.format(Locale.ROOT,
                                       "Interaction -> New GoldenRecord (%f)", score),
                         score, LinkingRule.NEW);
@@ -502,14 +512,6 @@ public final class LibMPI {
       return result;
    }
 
-   /*
-    * *****************************************************************************
-    * *
-    * Notifications
-    * *****************************************************************************
-    * *
-    */
-
    public void sendUpdatedNotificationEvent(
          final String notificationId,
          final String oldGoldenId,
@@ -520,6 +522,22 @@ public final class LibMPI {
             currentGoldenId);
       final var eventData = new NotificationAuditEventData(message, notificationId);
       auditTrailUtil.sendAuditEvent(GlobalConstants.AuditEventType.NOTIFICATION_EVENT, eventData);
+   }
+
+   /*
+    * *****************************************************************************
+    * *
+    * Notifications
+    * *****************************************************************************
+    * *
+    */
+
+   public record PgConfig(
+         String pgIp,
+         Integer pgPort,
+         String pgUser,
+         String pgPassword,
+         String pgDb) {
    }
 
 }

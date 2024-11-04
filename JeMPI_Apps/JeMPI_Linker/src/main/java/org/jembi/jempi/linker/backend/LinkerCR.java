@@ -35,24 +35,15 @@ final class LinkerCR {
    static Either<MpiGeneralError, List<GoldenRecord>> crFind(
          final LibMPI libMPI,
          final ApiModels.ApiCrFindRequest crFindData) {
-      if (LOGGER.isTraceEnabled()) {
-         LOGGER.trace("{}", crFindData);
-      }
       return libMPI.apiCrFindGoldenRecords(crFindData);
    }
 
    static List<GoldenRecord> crCandidates(
          final LibMPI libMPI,
          final ApiModels.ApiCrCandidatesRequest crCandidatesData) {
-      if (LOGGER.isTraceEnabled()) {
-         LOGGER.trace("{}", crCandidatesData.demographicData());
-      }
-      final var matchedCandidates =
-            crMatchedCandidates(libMPI,
-                                crCandidatesData.candidateThreshold(),
-                                DemographicData.fromCustomDemographicData(crCandidatesData.demographicData()));
-      LOGGER.trace("size = {}", matchedCandidates.size());
-      return matchedCandidates;
+      return crMatchedCandidates(libMPI,
+                                 crCandidatesData.candidateThreshold(),
+                                 DemographicData.fromCustomDemographicData(crCandidatesData.demographicData()));
    }
 
    private static List<GoldenRecord> crMatchedCandidates(
@@ -63,7 +54,8 @@ final class LinkerCR {
       if (candidates.isEmpty()) {
          return List.of();
       } else {
-         return candidates.parallelStream()
+         return candidates.get()
+                          .parallelStream()
                           .unordered()
                           .map(candidate -> new WorkCandidate(candidate,
                                                               LinkerUtils.calcNormalizedLinkScore(candidate.demographicData(),
@@ -85,9 +77,6 @@ final class LinkerCR {
    static Either<MpiGeneralError, LinkInfo> crRegister(
          final LibMPI libMPI,
          final ApiModels.ApiCrRegisterRequest crRegister) {
-      if (LOGGER.isTraceEnabled()) {
-         LOGGER.trace("{}", crRegister.demographicData());
-      }
       if (crRegister.auxInteractionData().get(FieldsConfig.INTERACTION_AUX_DATE_CREATED_FIELD_NAME_CC).isMissingNode()) {
          return Either.left(new MpiServiceError.CRMissingFieldError("auxDateCreated"));
       } else {
@@ -100,10 +89,8 @@ final class LinkerCR {
                                   crRegister.sourceId(),
                                   AuxInteractionData.fromCustomAuxInteractionData(crRegister.auxInteractionData()),
                                   DemographicData.fromCustomDemographicData(crRegister.demographicData()));
-            final var linkInfo =
-                  libMPI.createInteractionAndLinkToClonedGoldenRecord(applyAutoCreateFunctions(interaction),
-                                                                      1.0F);
-            return Either.right(linkInfo);
+            return libMPI.createInteractionAndLinkToClonedGoldenRecord(applyAutoCreateFunctions(interaction),
+                                                                       1.0F);
          } else {
             return Either.left(new MpiServiceError.CRClientExistsError(matchedCandidates.stream()
                                                                                         .map(GoldenRecord::demographicData)
@@ -146,13 +133,13 @@ final class LinkerCR {
                validated1,
                validated2,
                LinkingRule.EXPLICIT_GID);
-         if (linkInfo != null) {
+         if (linkInfo.isRight()) {
             syncGoldenRecordToInteraction(libMPI,
                                           req.gid(),
                                           goldenRecord.demographicData(),
-                                          linkInfo.interactionUID(),
+                                          linkInfo.get().interactionUID(),
                                           reqDemographicData);
-            return Either.right(linkInfo);
+            return linkInfo;
          } else {
             return Either.left(new MpiServiceError.CRLinkUpdateError(interaction.demographicData()));
          }
@@ -169,7 +156,7 @@ final class LinkerCR {
          return Either.left(new MpiServiceError.CRMissingFieldError("auxDateCreated"));
       } else {
          final var grec = libMPI.findExpandedSourceIdList(sourceId.facility(), sourceId.patient());
-         if (AppUtils.isNullOrEmpty(grec) || grec.isEmpty() || grec.getFirst().goldenRecords().isEmpty()) {
+         if (AppUtils.isNullOrEmpty(grec.get()) || grec.isEmpty() || grec.get().getFirst().goldenRecords().isEmpty()) {
             final var linkInfo = LinkerDWH.linkInteraction(libMPI,
                                                            new Interaction(null,
                                                                            sourceId,
@@ -182,9 +169,9 @@ final class LinkerCR {
                                                            AppConfig.LINKER_MATCH_THRESHOLD_MARGIN,
                                                            "STAN");
 
-            return Either.right(linkInfo.get());
+            return Either.right(linkInfo.get().get());
          }
-         final var goldenRecord = grec.getFirst().goldenRecords().getFirst();
+         final var goldenRecord = grec.get().getFirst().goldenRecords().getFirst();
          final var gid = goldenRecord.goldenId();
          if (goldenRecord.demographicData() == null
              || checkNull(goldenRecord.demographicData())
@@ -203,15 +190,15 @@ final class LinkerCR {
                validated1,
                validated2,
                LinkingRule.EXPLICIT_SOURCE_ID);
-         if (linkInfo != null) {
+         if (linkInfo.isRight()) {
             if (syncGoldenRecord) {
                syncGoldenRecordToInteraction(libMPI,
                                              gid,
                                              goldenRecord.demographicData(),
-                                             linkInfo.interactionUID(),
+                                             linkInfo.get().interactionUID(),
                                              demographicData);
             }
-            return Either.right(linkInfo);
+            return linkInfo;
          } else {
             return Either.left(new MpiServiceError.CRLinkUpdateError(interaction.demographicData()));
          }
@@ -242,9 +229,6 @@ final class LinkerCR {
    static Either<MpiGeneralError, BackEnd.CrUpdateFieldResponse.UpdateFieldResponse> crUpdateField(
          final LibMPI libMPI,
          final ApiModels.ApiCrUpdateFieldsRequest crUpdateFields) {
-      if (LOGGER.isTraceEnabled()) {
-         LOGGER.trace("{} {}", crUpdateFields.goldenId(), crUpdateFields.fields());
-      }
       final var fail = new ArrayList<String>();
       final var pass = new ArrayList<String>();
       if (StringUtils.isBlank(crUpdateFields.goldenId())) {
@@ -256,7 +240,7 @@ final class LinkerCR {
          if (i < 0) {
             LOGGER.error("{} {}", field.name(), field.value());
          } else {
-            if (libMPI.updateGoldenRecordField(crUpdateFields.goldenId(), field.name(), field.value())) {
+            if (libMPI.updateGoldenRecordField(crUpdateFields.goldenId(), field.name(), field.value()).isEmpty()) {
                pass.add(field.name());
             } else {
                fail.add(field.name());

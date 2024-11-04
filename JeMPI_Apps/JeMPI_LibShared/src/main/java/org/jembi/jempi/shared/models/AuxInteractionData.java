@@ -37,11 +37,6 @@ public record AuxInteractionData(
    public static AuxInteractionData fromCustomAuxInteractionData(final JsonNode node) {
       final var dt = node.get(FieldsConfig.INTERACTION_AUX_DATE_CREATED_FIELD_NAME_CC).textValue();
       final var d = Instant.parse(dt).atOffset(ZoneOffset.UTC).toLocalDateTime();
-      LOGGER.debug("{}", dt);
-      for (int i = 0; i < FIELDS_CONFIG.userAuxInteractionFields.size(); i++) {
-            LOGGER.debug("{} {}", FIELDS_CONFIG.userAuxInteractionFields.get(i).ccName(),
-                                          FIELDS_CONFIG.userAuxInteractionFields.get(i).scName());
-      }
       return new AuxInteractionData(
             d,
             FIELDS_CONFIG.userAuxInteractionFields

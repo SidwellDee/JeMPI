@@ -47,6 +47,29 @@ public final class SourceIdDAO extends GenericDAO<SourceIdDAO.SqlSourceId> {
       return uuid;
    }
 
+   SqlSourceId getByFacilityCodePatientId(
+         final PsqlClient client,
+         final String facilityCode,
+         final String patientId) throws SQLException {
+      final var sql = "select * from source_id where facility_code = ? and patient_id  = ?;";
+
+      SourceIdDAO.SqlSourceId entity = null;
+      try (PreparedStatement pstmt = client.prepareStatement(sql)) {
+         pstmt.setString(1, facilityCode);
+         pstmt.setString(2, patientId);
+         ResultSet rs = pstmt.executeQuery();
+         if (rs.next()) {
+            entity = new SourceIdDAO.SqlSourceId(
+                  rs.getObject("uid", UUID.class),
+                  rs.getString(2),
+                  rs.getString(3),
+                  rs.getObject(4, UUID.class));
+         }
+      }
+      return entity;
+   }
+
+
    @Override
    SqlSourceId getById(
          final PsqlClient client,

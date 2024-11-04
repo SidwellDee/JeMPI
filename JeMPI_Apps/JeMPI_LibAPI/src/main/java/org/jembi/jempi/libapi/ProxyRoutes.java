@@ -111,8 +111,6 @@ public final class ProxyRoutes {
       return entity(Jackson.unmarshaller(OBJECT_MAPPER, ApiModels.LinkInteractionSyncBody.class),
                     obj -> {
                        try {
-                          final var json = OBJECT_MAPPER.writeValueAsString(obj);
-                          LOGGER.debug("{} {}", GlobalConstants.SEGMENT_PROXY_POST_CR_LINK, json);
                           return onComplete(proxyPostLinkInteractionDoIt(linkerIP, linkerPort, http, obj),
                                             response -> {
                                                if (!response.isSuccess()) {
@@ -197,10 +195,7 @@ public final class ProxyRoutes {
                                      .withMethod(HttpMethods.POST)
                                      .withEntity(ContentTypes.APPLICATION_JSON, json);
       final var stage = http.singleRequest(request);
-      return stage.thenApply(response -> {
-         LOGGER.debug("{}", response);
-         return response;
-      });
+      return stage.thenApply(response -> response);
    }
 
    static Route proxyPostCrFind(
@@ -246,10 +241,7 @@ public final class ProxyRoutes {
                                      .withMethod(HttpMethods.POST)
                                      .withEntity(ContentTypes.APPLICATION_JSON, json);
       final var stage = http.singleRequest(request);
-      return stage.thenApply(response -> {
-         LOGGER.debug("{}", response);
-         return response;
-      });
+      return stage.thenApply(response -> response);
    }
 
    static Route proxyPostCrCandidates(

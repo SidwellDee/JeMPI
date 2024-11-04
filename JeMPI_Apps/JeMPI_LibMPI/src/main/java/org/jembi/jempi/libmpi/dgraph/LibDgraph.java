@@ -40,66 +40,67 @@ public final class LibDgraph implements LibMPIClientInterface {
     *
     */
 
-   public long countInteractions() {
-      return DgraphQueries.countInteractions();
+   public Either<MpiGeneralError, Long> countInteractions() {
+      return Either.right(DgraphQueries.countInteractions());
    }
 
-   public long countGoldenRecords() {
-      return DgraphQueries.countGoldenRecords();
+   public Either<MpiGeneralError, Long> countGoldenRecords() {
+      return Either.right(DgraphQueries.countGoldenRecords());
    }
 
-   public Interaction findInteraction(final String interactionId) {
-      return DgraphQueries.findInteraction(interactionId);
+   public Either<MpiGeneralError, Interaction> findInteraction(final String interactionId) {
+      return Either.right(DgraphQueries.findInteraction(interactionId));
    }
 
-   public List<Interaction> findInteractions(final List<String> interactionIds) {
-      return List.of();
+   public Either<MpiGeneralError, List<Interaction>> findInteractions(final List<String> interactionIds) {
+      return Either.left(new MpiServiceError.NotImplementedError("findInteractions"));
    }
 
-   public List<SourceId> findSourceId(
+   public Either<MpiGeneralError, List<SourceId>> findSourceId(
          final String facility,
          final String patient) {
-      return DgraphQueries.findSourceIdList(facility, patient);
+      return Either.right(DgraphQueries.findSourceIdList(facility, patient));
    }
 
-   public List<ExpandedSourceId> findExpandedSourceIdList(
+   public Either<MpiGeneralError, List<ExpandedSourceId>> findExpandedSourceIdList(
          final String facility,
          final String patient) {
-      return DgraphQueries.findExpandedSourceIdList(facility, patient);
+      return Either.right(DgraphQueries.findExpandedSourceIdList(facility, patient));
    }
 
-   public List<ExpandedInteraction> findExpandedInteractions(final List<String> interactionIds) {
-      return DgraphQueries.findExpandedInteractions(interactionIds);
+   public Either<MpiGeneralError, List<ExpandedInteraction>> findExpandedInteractions(final List<String> interactionIds) {
+      return Either.right(DgraphQueries.findExpandedInteractions(interactionIds));
    }
 
    public Either<MpiGeneralError, PaginatedResultSet<GoldenRecord>> findGoldenRecords(final List<String> ids) {
       return DgraphQueries.findGoldenRecords(ids);
    }
-   public PaginatedResultSet<ExpandedGoldenRecord> findExpandedGoldenRecords(final List<String> goldenIds) {
-      return DgraphQueries.getExpandedGoldenRecords(goldenIds);
+
+   public Either<MpiGeneralError, PaginatedResultSet<ExpandedGoldenRecord>> findExpandedGoldenRecords(final List<String> goldenIds) {
+      return Either.right(DgraphQueries.getExpandedGoldenRecords(goldenIds));
    }
 
-   public String restoreGoldenRecord(
-           final RestoreGoldenRecords goldenRecord) {
-      return dgraphMutations.restoreGoldenRecord(goldenRecord);
+   public Either<MpiGeneralError, String> restoreGoldenRecord(
+         final RestoreGoldenRecords goldenRecord) {
+      return Either.right(dgraphMutations.restoreGoldenRecord(goldenRecord));
    }
 
-   public List<String> findGoldenIds() {
-      return DgraphQueries.getGoldenIds();
+   public Either<MpiGeneralError, List<String>> findGoldenIds() {
+      return Either.right(DgraphQueries.getGoldenIds());
    }
 
-   public List<String> fetchGoldenIds(
+   public Either<MpiGeneralError, List<String>> fetchGoldenIds(
          final long offset,
          final long length) {
-      return DgraphQueries.fetchGoldenIds(offset, length);
+      return Either.right(DgraphQueries.fetchGoldenIds(offset, length));
    }
 
-   public List<GoldenRecord> findLinkCandidates(final DemographicData demographicData) {
-      return DgraphQueries.findLinkCandidates(demographicData);
+   public Either<MpiGeneralError, List<GoldenRecord>> findLinkCandidates(final DemographicData demographicData) {
+      return Either.right(DgraphQueries.findLinkCandidates(demographicData));
    }
 
-   public List<GoldenRecord> findMatchCandidates(final DemographicData demographicData) {
-      return DgraphQueries.findMatchCandidates(demographicData);
+   public Either<MpiGeneralError, List<GoldenRecord>> findMatchCandidates(final DemographicData demographicData) {
+      return Either.right(DgraphQueries.findMatchCandidates(demographicData));
    }
 
    public Either<MpiGeneralError, PaginatedResultSet<GoldenRecord>> apiCrFindGoldenRecords(final ApiModels.ApiCrFindRequest request) {
@@ -138,60 +139,60 @@ public final class LibDgraph implements LibMPIClientInterface {
       return new PaginatedGIDsWithInteractionCount(data, pagination, interactionCount);
    }
 
-   public PaginatedResultSet<ExpandedGoldenRecord> simpleSearchGoldenRecords(
+   public Either<MpiGeneralError, PaginatedResultSet<ExpandedGoldenRecord>> simpleSearchGoldenRecords(
          final List<ApiModels.ApiSearchParameter> params,
          final Integer offset,
          final Integer limit,
          final String sortBy,
          final Boolean sortAsc) {
       final var list = DgraphQueries.simpleSearchGoldenRecords(params, offset, limit, sortBy, sortAsc);
-      return paginatedExpandedGoldenRecords(list);
+      return Either.right(paginatedExpandedGoldenRecords(list));
    }
 
-   public PaginatedResultSet<ExpandedGoldenRecord> customSearchGoldenRecords(
+   public Either<MpiGeneralError, PaginatedResultSet<ExpandedGoldenRecord>> customSearchGoldenRecords(
          final List<ApiModels.ApiSimpleSearchRequestPayload> params,
          final Integer offset,
          final Integer limit,
          final String sortBy,
          final Boolean sortAsc) {
       final var list = DgraphQueries.customSearchGoldenRecords(params, offset, limit, sortBy, sortAsc);
-      return paginatedExpandedGoldenRecords(list);
+      return Either.right(paginatedExpandedGoldenRecords(list));
    }
 
-   public PaginatedResultSet<Interaction> simpleSearchInteractions(
+   public Either<MpiGeneralError, PaginatedResultSet<Interaction>> simpleSearchInteractions(
          final List<ApiModels.ApiSearchParameter> params,
          final Integer offset,
          final Integer limit,
          final String sortBy,
          final Boolean sortAsc) {
       final var list = DgraphQueries.simpleSearchInteractions(params, offset, limit, sortBy, sortAsc);
-      return paginatedInteractions(list);
+      return Either.right(paginatedInteractions(list));
    }
 
-   public PaginatedResultSet<Interaction> customSearchInteractions(
+   public Either<MpiGeneralError, PaginatedResultSet<Interaction>> customSearchInteractions(
          final List<ApiModels.ApiSimpleSearchRequestPayload> params,
          final Integer offset,
          final Integer limit,
          final String sortBy,
          final Boolean sortAsc) {
       final var list = DgraphQueries.customSearchInteractions(params, offset, limit, sortBy, sortAsc);
-      return paginatedInteractions(list);
+      return Either.right(paginatedInteractions(list));
    }
 
-   public LibMPIPaginatedResultSet<String> filterGids(
+   public Either<MpiGeneralError, LibMPIPaginatedResultSet<String>> filterGids(
          final List<ApiModels.ApiSearchParameter> params,
          final LocalDateTime createdAt,
          final PaginationOptions paginationOptions) {
       final var list = DgraphQueries.filterGidsWithParams(params, createdAt, paginationOptions, false);
-      return paginatedGids(list.getLeft());
+      return Either.right(paginatedGids(list.getLeft()));
    }
 
-   public PaginatedGIDsWithInteractionCount filterGidsWithInteractionCount(
+   public Either<MpiGeneralError, PaginatedGIDsWithInteractionCount> filterGidsWithInteractionCount(
          final List<ApiModels.ApiSearchParameter> params,
          final LocalDateTime createdAt,
          final PaginationOptions paginationOptions) {
       final var list = DgraphQueries.filterGidsWithParams(params, createdAt, paginationOptions, true);
-      return paginatedGidsWithInteractionCount(list.get());
+      return Either.right(paginatedGidsWithInteractionCount(list.get()));
    }
 
 
@@ -201,45 +202,55 @@ public final class LibDgraph implements LibMPIClientInterface {
     * *******************************************************
     */
 
-   public Either<MpiGeneralError,  ApiModels.ApiCivilRecordResponse> insertCivilRecord(
+   public Either<MpiGeneralError, ApiModels.ApiCivilRecordResponse> insertCivilRecord(
          final String auxId,
          final DemographicData demographicData) {
       return Either.left(new MpiServiceError.NotImplementedError("insertCivilRecord not implemented for DGraph"));
    }
 
-   public boolean setScore(
+   public Option<MpiGeneralError> setScore(
          final String interactionUID,
          final String goldenRecordUid,
          final Float score) {
-      return dgraphMutations.setScore(interactionUID, goldenRecordUid, score);
+      return dgraphMutations.setScore(interactionUID, goldenRecordUid, score)
+            ? Option.none()
+            : Option.of(new MpiServiceError.InternalError("setScore error"));
    }
 
-   public boolean updateGoldenRecordField(
+   public Option<MpiGeneralError> updateGoldenRecordField(
          final String goldenId,
          final String fieldName,
          final String val) {
-      return dgraphMutations.updateGoldenRecordField(goldenId, fieldName, val);
+      return dgraphMutations.updateGoldenRecordField(goldenId, fieldName, val)
+            ? Option.none()
+            : Option.of(new MpiServiceError.InternalError("updateGoldenRecordField error"));
    }
 
-   public boolean updateGoldenRecordField(
+   public Option<MpiGeneralError> updateGoldenRecordField(
          final String goldenId,
          final String fieldName,
          final Boolean val) {
-      return dgraphMutations.updateGoldenRecordField(goldenId, fieldName, val);
+      return dgraphMutations.updateGoldenRecordField(goldenId, fieldName, val)
+            ? Option.none()
+            : Option.of(new MpiServiceError.InternalError("updateGoldenRecordField error"));
    }
 
-   public boolean updateGoldenRecordField(
+   public Option<MpiGeneralError> updateGoldenRecordField(
          final String goldenId,
          final String fieldName,
          final Double val) {
-      return dgraphMutations.updateGoldenRecordField(goldenId, fieldName, val);
+      return dgraphMutations.updateGoldenRecordField(goldenId, fieldName, val)
+            ? Option.none()
+            : Option.of(new MpiServiceError.InternalError("updateGoldenRecordField error"));
    }
 
-   public boolean updateGoldenRecordField(
+   public Option<MpiGeneralError> updateGoldenRecordField(
          final String goldenId,
          final String fieldName,
          final Long val) {
-      return dgraphMutations.updateGoldenRecordField(goldenId, fieldName, val);
+      return dgraphMutations.updateGoldenRecordField(goldenId, fieldName, val)
+            ? Option.none()
+            : Option.of(new MpiServiceError.InternalError("updateGoldenRecordField error"));
    }
 
    public Either<MpiGeneralError, LinkInfo> linkToNewGoldenRecord(
@@ -257,16 +268,16 @@ public final class LibDgraph implements LibMPIClientInterface {
       return dgraphMutations.updateLink(goldenUID, newGoldenUID, interactionUID, score);
    }
 
-   public LinkInfo createInteractionAndLinkToExistingGoldenRecord(
+   public Either<MpiGeneralError, LinkInfo> createInteractionAndLinkToExistingGoldenRecord(
          final Interaction interaction,
          final GoldenIdScore goldenIdScore) {
-      return dgraphMutations.linkDGraphInteraction(interaction, goldenIdScore);
+      return Either.right(dgraphMutations.linkDGraphInteraction(interaction, goldenIdScore));
    }
 
-   public LinkInfo createInteractionAndLinkToClonedGoldenRecord(
+   public Either<MpiGeneralError, LinkInfo> createInteractionAndLinkToClonedGoldenRecord(
          final Interaction interaction,
          final Float score) {
-      return dgraphMutations.addNewDGraphInteraction(interaction);
+      return Either.right(dgraphMutations.addNewDGraphInteraction(interaction));
    }
 
    /*
@@ -275,8 +286,9 @@ public final class LibDgraph implements LibMPIClientInterface {
     * *******************************************************
     */
 
-   public void connect() {
+   public Option<MpiGeneralError> connect() {
       DgraphClient.getInstance().connect();
+      return Option.none();
    }
 
    public Option<MpiGeneralError> dropAll() {

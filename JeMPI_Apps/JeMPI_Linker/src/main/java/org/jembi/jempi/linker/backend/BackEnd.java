@@ -85,7 +85,12 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Request> {
                           host,
                           port,
                           AppConfig.KAFKA_BOOTSTRAP_SERVERS,
-                          "CLIENT_ID_LINKER-" + UUID.randomUUID());
+                          "CLIENT_ID_LINKER-" + UUID.randomUUID(),
+                          new LibMPI.PgConfig(AppConfig.POSTGRESQL_IP,
+                                              AppConfig.POSTGRESQL_PORT,
+                                              AppConfig.POSTGRESQL_USER,
+                                              AppConfig.POSTGRESQL_PASSWORD,
+                                              AppConfig.POSTGRESQL_MPI_DB));
    }
 
    @Override
@@ -179,49 +184,46 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Request> {
    }
 
    private Behavior<Request> findCandidateWithScoreHandler(final FindCandidatesWithScoreRequest req) {
-      LOGGER.warn("findCandidateWithScoreHandler not implemented");
+      LOGGER.error("findCandidateWithScoreHandler not implemented");
       final var result = new MpiServiceError.NotImplementedError("findCandidateWithScore not implemented");
       req.replyTo.tell(new FindCandidatesWithScoreResponse(Either.left(result)));
       return Behaviors.same();
    }
 
    private Behavior<Request> syncLinkInteractionHandler(final SyncLinkInteractionRequest request) {
-      LOGGER.debug("syncLinkInteractionHandler");
-      try {
-         final SourceId sourceId = request.link.sourceId();
-         LOGGER.debug(OBJECT_MAPPER.writeValueAsString(sourceId));
-         final AuxInteractionData auxInteractionData =
-               AuxInteractionData.fromCustomAuxInteractionData(request.link.auxInteractionData());
-         LOGGER.debug(OBJECT_MAPPER.writeValueAsString(auxInteractionData));
-         final DemographicData demographicField = DemographicData.fromCustomDemographicData(request.link.demographicData());
-         LOGGER.debug(OBJECT_MAPPER.writeValueAsString(demographicField));
+      final SourceId sourceId = request.link.sourceId();
+      final AuxInteractionData auxInteractionData =
+            AuxInteractionData.fromCustomAuxInteractionData(request.link.auxInteractionData());
+      final DemographicData demographicField = DemographicData.fromCustomDemographicData(request.link.demographicData());
 
-         final float threshold = request.link.matchThreshold() == null
-               ? AppConfig.LINKER_MATCH_THRESHOLD
-               : request.link.matchThreshold();
+      final float threshold = request.link.matchThreshold() == null
+            ? AppConfig.LINKER_MATCH_THRESHOLD
+            : request.link.matchThreshold();
 
-         final var listLinkInfo = LinkerDWH.linkInteraction(libMPI,
-                                                            new Interaction(null,
-                                                                            sourceId,
-                                                                            auxInteractionData,
-                                                                            demographicField),
-                                                            request.link.externalLinkRange(),
-                                                            request.link.matchThreshold() == null
-                                                                  ? AppConfig.LINKER_MATCH_THRESHOLD
-                                                                  : request.link.matchThreshold(),
-                                                            threshold - 0.05F,
-                                                            threshold + 0.05F,
-                                                            AppConfig.LINKER_MATCH_THRESHOLD_MARGIN,
-                                                            request.link.stan());
-         request.replyTo.tell(new SyncLinkInteractionResponse(request.link.stan(),
-                                                              listLinkInfo.isRight()
-                                                                    ? listLinkInfo.get()
-                                                                    : null,
-                                                              listLinkInfo.isLeft()
-                                                                    ? listLinkInfo.getLeft()
-                                                                    : null));
-      } catch (JsonProcessingException e) {
-         LOGGER.error(e.getLocalizedMessage(), e);
+      final var listLinkInfo = LinkerDWH.linkInteraction(libMPI,
+                                                         new Interaction(null,
+                                                                         sourceId,
+                                                                         auxInteractionData,
+                                                                         demographicField),
+                                                         request.link.externalLinkRange(),
+                                                         request.link.matchThreshold() == null
+                                                               ? AppConfig.LINKER_MATCH_THRESHOLD
+                                                               : request.link.matchThreshold(),
+                                                         threshold - 0.05F,
+                                                         threshold + 0.05F,
+                                                         AppConfig.LINKER_MATCH_THRESHOLD_MARGIN,
+                                                         request.link.stan());
+      if (listLinkInfo.isLeft()) {
+         request.replyTo.tell(new SyncLinkInteractionResponse(Either.left(listLinkInfo.getLeft())));
+      } else {
+         request.replyTo.tell(new SyncLinkInteractionResponse(
+               Either.right(new SyncLinkInteractionResponse.ResponseData(request.link.stan(),
+                                                                         listLinkInfo.isRight()
+                                                                               ? listLinkInfo.get().get()
+                                                                               : null,
+                                                                         listLinkInfo.isLeft()
+                                                                               ? listLinkInfo.get().getLeft()
+                                                                               : null))));
       }
       return Behaviors.same();
    }
@@ -255,11 +257,14 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Request> {
                                                ? uploadConfig.marginWindowSize().floatValue()
                                                : AppConfig.LINKER_MATCH_THRESHOLD_MARGIN,
                                          req.batchInteraction.stan());
-         req.batchInteraction.stan();
-         if (linkInfo.isRight()) {
-            req.replyTo.tell(new AsyncLinkInteractionResponse(linkInfo.get()));
+         if (linkInfo.isLeft()) {
+            req.replyTo.tell(new AsyncLinkInteractionResponse(Either.left(linkInfo.getLeft())));
          } else {
-            req.replyTo.tell(new AsyncLinkInteractionResponse(null));
+            if (linkInfo.isRight()) {
+               req.replyTo.tell(new AsyncLinkInteractionResponse(Either.right(linkInfo.get().get())));
+            } else {
+               req.replyTo.tell(new AsyncLinkInteractionResponse(Either.right(null)));
+            }
          }
       } catch (Exception e) {
          LOGGER.error("Error handling AsyncLinkInteractionRequest: {}", e.getMessage(), e);
@@ -312,10 +317,11 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Request> {
       if (goldenRecords.isRight()) {
          final var scores = goldenRecords.get().parallelStream()
                                          .unordered()
-                                         .map(goldenRecord -> new ApiModels.ApiCalculateScoresResponse.ApiScore(goldenRecord.goldenId(),
-                                                                                                                LinkerUtils.calcNormalizedLinkScore(
-                                                                                                                      goldenRecord.demographicData(),
-                                                                                                                      interaction.demographicData())))
+                                         .map(goldenRecord -> new ApiModels.ApiCalculateScoresResponse.ApiScore(
+                                               goldenRecord.goldenId(),
+                                               LinkerUtils.calcNormalizedLinkScore(
+                                                     goldenRecord.demographicData(),
+                                                     interaction.get().demographicData())))
                                          .sorted((o1, o2) -> Float.compare(o2.score(), o1.score()))
                                          .collect(Collectors.toCollection(ArrayList::new));
          request.replyTo.tell(new CalculateScoresResponse(new ApiModels.ApiCalculateScoresResponse(request.calculateScoresRequest.interactionId(),
@@ -353,8 +359,22 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Request> {
          InteractionEnvelop batchInteraction) implements Request {
    }
 
-   public record AsyncLinkInteractionResponse(LinkInfo linkInfo) implements Response {
+   public record AsyncLinkInteractionResponse(Either<MpiGeneralError, LinkInfo> linkInfo) implements Response {
    }
+
+   public record SyncLinkInteractionRequest(
+         ApiModels.LinkInteractionSyncBody link,
+         ActorRef<SyncLinkInteractionResponse> replyTo) implements Request {
+   }
+
+   public record SyncLinkInteractionResponse(Either<MpiGeneralError, ResponseData> data) implements Response {
+      public record ResponseData(
+            String stan,
+            LinkInfo linkInfo,
+            List<ExternalLinkCandidate> externalLinkCandidateList) {
+      }
+   }
+
 
    public record EventUpdateMUReq(
          MUPacket mu,
@@ -373,17 +393,6 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Request> {
    public record CalculateScoresResponse(
          ApiModels.ApiCalculateScoresResponse calculateScoresResponse) {
 
-   }
-
-   public record SyncLinkInteractionRequest(
-         ApiModels.LinkInteractionSyncBody link,
-         ActorRef<SyncLinkInteractionResponse> replyTo) implements Request {
-   }
-
-   public record SyncLinkInteractionResponse(
-         String stan,
-         LinkInfo linkInfo,
-         List<ExternalLinkCandidate> externalLinkCandidateList) implements Response {
    }
 
    public record FindCandidatesWithScoreRequest(

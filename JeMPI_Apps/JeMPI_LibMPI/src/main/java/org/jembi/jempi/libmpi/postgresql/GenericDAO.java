@@ -1,8 +1,11 @@
 package org.jembi.jempi.libmpi.postgresql;
 
+import io.vavr.control.Either;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jembi.jempi.libmpi.MpiGeneralError;
+import org.jembi.jempi.libmpi.MpiServiceError;
 import org.jembi.jempi.shared.utils.AppUtils;
 
 import java.sql.PreparedStatement;
@@ -38,15 +41,15 @@ abstract class GenericDAO<T> {
       }
    }
 
-   long count(final PsqlClient client) throws SQLException {
+   Either<MpiGeneralError, Long> count(final PsqlClient client) throws SQLException {
       final String sql = "SELECT COUNT(*) FROM " + getTableName();
       try (PreparedStatement pstmt = client.prepareStatement(sql)) {
          final var rs = pstmt.executeQuery();
          if (rs.next()) {
-            return rs.getLong(1);
+            return Either.right(rs.getLong(1));
          }
       }
-      return -1;
+      return Either.left(new MpiServiceError.InternalError("count"));
    }
 
    List<UUID> getUid(final PsqlClient client) throws SQLException {

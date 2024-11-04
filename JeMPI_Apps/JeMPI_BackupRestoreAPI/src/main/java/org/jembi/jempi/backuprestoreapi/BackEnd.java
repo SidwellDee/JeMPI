@@ -10,7 +10,8 @@ import org.apache.logging.log4j.Logger;
 import org.jembi.jempi.libmpi.LibMPI;
 import org.jembi.jempi.libmpi.MpiGeneralError;
 import org.jembi.jempi.libmpi.MpiServiceError;
-import org.jembi.jempi.shared.models.*;
+import org.jembi.jempi.shared.models.ExpandedGoldenRecord;
+import org.jembi.jempi.shared.models.RestoreGoldenRecords;
 
 import java.util.Collections;
 import java.util.List;
@@ -40,6 +41,7 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
          final String sqlPassword,
          final String sqlNotificationsDb,
          final String sqlAuditDb,
+         final String sqlMpiDb,
          final String kafkaBootstrapServers,
          final String kafkaClientId) {
       super(context);
@@ -72,6 +74,7 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
          final String sqlPassword,
          final String sqlNotificationsDb,
          final String sqlAuditDb,
+         final String sqlMpiDb,
          final String kafkaBootstrapServers,
          final String kafkaClientId) {
       return Behaviors.setup(context -> new BackEnd(level,
@@ -84,6 +87,7 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
                                                     sqlPassword,
                                                     sqlNotificationsDb,
                                                     sqlAuditDb,
+                                                    sqlMpiDb,
                                                     kafkaBootstrapServers,
                                                     kafkaClientId));
    }
@@ -92,7 +96,16 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
          final String kafkaBootstrapServers,
          final String kafkaClientId,
          final Level debugLevel) {
-      libMPI = new LibMPI(debugLevel, dgraphHosts, dgraphPorts, kafkaBootstrapServers, kafkaClientId);
+      libMPI = new LibMPI(debugLevel,
+                          dgraphHosts,
+                          dgraphPorts,
+                          kafkaBootstrapServers,
+                          kafkaClientId,
+                          new LibMPI.PgConfig(AppConfig.POSTGRESQL_IP,
+                                              AppConfig.POSTGRESQL_PORT,
+                                              AppConfig.POSTGRESQL_USER,
+                                              AppConfig.POSTGRESQL_PASSWORD,
+                                              AppConfig.POSTGRESQL_MPI_DB));
    }
 
    @Override
@@ -111,14 +124,14 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
 
    private Behavior<Event> getGidsAllHandler(final GetGidsAllRequest request) {
       var recs = libMPI.findGoldenIds();
-      request.replyTo.tell(new GetGidsAllResponse(recs));
+      request.replyTo.tell(new GetGidsAllResponse(recs.get()));
       return Behaviors.same();
    }
 
    private Behavior<Event> getExpandedGoldenRecordHandler(final GetExpandedGoldenRecordRequest request) {
       ExpandedGoldenRecord expandedGoldenRecord = null;
       try {
-         expandedGoldenRecord = libMPI.findExpandedGoldenRecord(request.goldenId);
+         expandedGoldenRecord = libMPI.findExpandedGoldenRecord(request.goldenId).get();
       } catch (Exception e) {
          LOGGER.error(e.getLocalizedMessage(), e);
          LOGGER.error("libMPI.findExpandedGoldenRecord failed for goldenId: {} with error: {}",
@@ -140,17 +153,17 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
    private Behavior<Event> getExpandedGoldenRecordsHandler(final GetExpandedGoldenRecordsRequest request) {
       List<ExpandedGoldenRecord> goldenRecords = null;
       try {
-         goldenRecords = libMPI.findExpandedGoldenRecords(request.goldenIds);
+         goldenRecords = libMPI.findExpandedGoldenRecords(request.goldenIds).get();
       } catch (Exception exception) {
          LOGGER.error("libMPI.findExpandedGoldenRecords failed for goldenIds: {} with error: {}",
-                 request.goldenIds,
-                 exception.getMessage());
+                      request.goldenIds,
+                      exception.getMessage());
       }
 
       if (goldenRecords == null) {
          request.replyTo.tell(new GetExpandedGoldenRecordsResponse(Either.left(new MpiServiceError.GoldenIdDoesNotExistError(
-                 "Golden Records do not exist",
-                 Collections.singletonList(request.goldenIds).toString()))));
+               "Golden Records do not exist",
+               Collections.singletonList(request.goldenIds).toString()))));
       } else {
          request.replyTo.tell(new GetExpandedGoldenRecordsResponse(Either.right(goldenRecords)));
       }
@@ -160,11 +173,11 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
    private Behavior<Event> postGoldenRecordRequestHandler(final PostGoldenRecordRequest request) {
       String goldenRecords = null;
       try {
-         goldenRecords = libMPI.postGoldenRecord(request.goldenRecord);
+         goldenRecords = libMPI.postGoldenRecord(request.goldenRecord).get();
       } catch (Exception exception) {
          LOGGER.error("libMPI.postGoldenRecord failed for goldenIds: {} with error: {}",
-                 request.goldenRecord,
-                 exception.getMessage());
+                      request.goldenRecord,
+                      exception.getMessage());
       }
       request.replyTo.tell(new PostGoldenRecordResponse(goldenRecords));
       return Behaviors.same();
@@ -192,19 +205,21 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
    }
 
    public record GetExpandedGoldenRecordsRequest(
-           ActorRef<GetExpandedGoldenRecordsResponse> replyTo,
-           List<String> goldenIds) implements Event { }
+         ActorRef<GetExpandedGoldenRecordsResponse> replyTo,
+         List<String> goldenIds) implements Event {
+   }
 
    public record GetExpandedGoldenRecordsResponse(
-           Either<MpiGeneralError, List<ExpandedGoldenRecord>> expandedGoldenRecords) implements EventResponse { }
+         Either<MpiGeneralError, List<ExpandedGoldenRecord>> expandedGoldenRecords) implements EventResponse {
+   }
 
    public record PostGoldenRecordRequest(
-           ActorRef<PostGoldenRecordResponse> replyTo,
-           RestoreGoldenRecords goldenRecord) implements Event {
+         ActorRef<PostGoldenRecordResponse> replyTo,
+         RestoreGoldenRecords goldenRecord) implements Event {
    }
 
    public record PostGoldenRecordResponse(String goldenRecord)
-           implements EventResponse {
+         implements EventResponse {
    }
 
 }

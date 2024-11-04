@@ -3,10 +3,11 @@ package org.jembi.jempi.bootstrapper.data.stream.kafka;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.admin.TopicListing;
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jembi.jempi.bootstrapper.data.DataBootstrapper;
 import org.jembi.jempi.bootstrapper.data.utils.DataBootstraperConsts;
-import org.jembi.jempi.bootstrapper.utils.BootstrapperLogger;
+//import org.jembi.jempi.bootstrapper.utils.BootstrapperLogger;
 import org.jembi.jempi.shared.kafka.KafkaTopicManager;
 
 import java.io.IOException;
@@ -18,7 +19,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
 public class KafkaDataBootstrapper extends DataBootstrapper {
-   protected static final Logger LOGGER = BootstrapperLogger.getChildLogger(DataBootstrapper.LOGGER, "Kafka");
+//   protected static final Logger LOGGER = BootstrapperLogger.getChildLogger(DataBootstrapper.LOGGER, "Kafka");
+   private static final Logger LOGGER = LogManager.getLogger(KafkaDataBootstrapper.class);
+
    protected KafkaBootstrapConfig kafkaBootstrapConfig;
    protected KafkaTopicManager kafkaTopicManager;
 

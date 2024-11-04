@@ -9,6 +9,7 @@ import io.vavr.control.Either;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.LineIterator;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -30,7 +31,6 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 
@@ -40,10 +40,12 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
 
    private static final Logger LOGGER = LogManager.getLogger(BackEnd.class);
    private final String pgIP;
+   private final Integer pgPort;
    private final String pgUser;
    private final String pgPassword;
    private final String pgNotificationsDb;
    private final String pgAuditDb;
+   private final String pgMpiDb;
    private final PsqlNotifications psqlNotifications;
    private final PsqlAuditTrail psqlAuditTrail;
    private final String systemConfigDirectory;
@@ -65,6 +67,7 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
          final String sqlPassword,
          final String sqlNotificationsDb,
          final String sqlAuditDb,
+         final String sqlMpiDb,
          final String kafkaBootstrapServers,
          final String kafkaClientId,
          final String systemConfigDirectory,
@@ -77,18 +80,19 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
          this.dgraphHosts = dgraphHosts;
          this.dgraphPorts = dgraphPorts;
          this.pgIP = sqlIP;
-         Integer pgPort = sqlPort;
+         this.pgPort = sqlPort;
          this.pgUser = sqlUser;
          this.pgPassword = sqlPassword;
          this.pgNotificationsDb = sqlNotificationsDb;
          this.pgAuditDb = sqlAuditDb;
+         this.pgMpiDb = sqlMpiDb;
          this.systemConfigDirectory = systemConfigDirectory;
          this.configReferenceFileName = configReferenceFileName;
          this.configMasterFileName = configMasterFileName;
          this.fieldsConfigurationFileName = fieldsConfigurationFileName;
          psqlNotifications = new PsqlNotifications(sqlIP, sqlPort, sqlNotificationsDb, sqlUser, sqlPassword);
          psqlAuditTrail = new PsqlAuditTrail(sqlIP, sqlPort, sqlAuditDb, sqlUser, sqlPassword);
-         openMPI(kafkaBootstrapServers, kafkaClientId, debugLevel);
+         openMPI(kafkaBootstrapServers, kafkaClientId, debugLevel, new LibMPI.PgConfig(pgIP, pgPort, pgUser, pgPassword, pgMpiDb));
       } catch (Exception e) {
          LOGGER.error(e.getMessage(), e);
          throw e;
@@ -106,6 +110,7 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
          final String sqlPassword,
          final String sqlNotificationsDb,
          final String sqlAuditDb,
+         final String sqlMpiDb,
          final String kafkaBootstrapServers,
          final String kafkaClientId,
          final String systemConfigDirectory,
@@ -122,6 +127,7 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
                                                     sqlPassword,
                                                     sqlNotificationsDb,
                                                     sqlAuditDb,
+                                                    sqlMpiDb,
                                                     kafkaBootstrapServers,
                                                     kafkaClientId,
                                                     systemConfigDirectory,
@@ -155,8 +161,9 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
    private void openMPI(
          final String kafkaBootstrapServers,
          final String kafkaClientId,
-         final Level debugLevel) {
-      libMPI = new LibMPI(debugLevel, dgraphHosts, dgraphPorts, kafkaBootstrapServers, kafkaClientId);
+         final Level debugLevel,
+         final LibMPI.PgConfig pgConfig) {
+      libMPI = new LibMPI(debugLevel, dgraphHosts, dgraphPorts, kafkaBootstrapServers, kafkaClientId, pgConfig);
    }
 
    @Override
@@ -288,8 +295,8 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
 
    private Behavior<Event> countGoldenRecordsHandler(final CountGoldenRecordsRequest request) {
       try {
-         final long count = libMPI.countGoldenRecords();
-         request.replyTo.tell(new CountGoldenRecordsResponse(Either.right(count)));
+         final var count = libMPI.countGoldenRecords();
+         request.replyTo.tell(new CountGoldenRecordsResponse(count));
       } catch (Exception exception) {
          LOGGER.error("libMPI.countGoldenRecords failed with error message: {}", exception.getMessage());
          request.replyTo.tell(new CountGoldenRecordsResponse(Either.left(new MpiServiceError.GeneralError(exception.getMessage()))));
@@ -299,8 +306,8 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
 
    private Behavior<Event> countInteractionsHandler(final CountInteractionsRequest request) {
       try {
-         final long count = libMPI.countInteractions();
-         request.replyTo.tell(new CountInteractionsResponse(Either.right(count)));
+         final var count = libMPI.countInteractions();
+         request.replyTo.tell(new CountInteractionsResponse(count));
       } catch (Exception exception) {
          LOGGER.error("libMPI.countPatientRecords failed with error message: {}", exception.getMessage());
          request.replyTo.tell(new CountInteractionsResponse(Either.left(new MpiServiceError.GeneralError(exception.getMessage()))));
@@ -311,7 +318,13 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
    private Behavior<Event> countRecordsHandler(final CountRecordsRequest request) {
       final var recs = libMPI.countGoldenRecords();
       final var docs = libMPI.countInteractions();
-      request.replyTo.tell(new CountRecordsResponse(recs, docs));
+      if (recs.isRight() && docs.isRight()) {
+         request.replyTo.tell(new CountRecordsResponse(Either.right(Pair.of(recs.get(), docs.get()))));
+      } else {
+         request.replyTo.tell(new CountRecordsResponse(Either.left(recs.isLeft()
+                                                                         ? recs.getLeft()
+                                                                         : docs.getLeft())));
+      }
       return Behaviors.same();
    }
 
@@ -329,81 +342,26 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
    }
 
    private Behavior<Event> getExpandedGoldenRecordHandler(final GetExpandedGoldenRecordRequest request) {
-      ExpandedGoldenRecord expandedGoldenRecord = null;
-      try {
-         expandedGoldenRecord = libMPI.findExpandedGoldenRecord(request.goldenId);
-         final var json = OBJECT_MAPPER.writeValueAsString(expandedGoldenRecord);
-         LOGGER.debug("expandedGoldenRecord:\n{}", json);
-      } catch (Exception e) {
-         LOGGER.error(e.getLocalizedMessage(), e);
-         LOGGER.error("libMPI.findExpandedGoldenRecord failed for goldenId: {} with error: {}", request.goldenId, e.getMessage());
-      }
-
-      if (expandedGoldenRecord == null) {
-         request.replyTo.tell(new GetExpandedGoldenRecordResponse(Either.left(new MpiServiceError.GoldenIdDoesNotExistError(
-               "Golden Record does not exist",
-               request.goldenId))));
-      } else {
-         request.replyTo.tell(new GetExpandedGoldenRecordResponse(Either.right(expandedGoldenRecord)));
-      }
+      final var expandedGoldenRecord = libMPI.findExpandedGoldenRecord(request.goldenId);
+      request.replyTo.tell(new GetExpandedGoldenRecordResponse(expandedGoldenRecord));
       return Behaviors.same();
    }
 
    private Behavior<Event> getExpandedGoldenRecordsHandler(final GetExpandedGoldenRecordsRequest request) {
-      List<ExpandedGoldenRecord> goldenRecords = null;
-      try {
-         goldenRecords = libMPI.findExpandedGoldenRecords(request.goldenIds);
-      } catch (Exception exception) {
-         LOGGER.error("libMPI.findExpandedGoldenRecords failed for goldenIds: {} with error: {}",
-                      request.goldenIds,
-                      exception.getMessage());
-      }
-
-      if (goldenRecords == null) {
-         request.replyTo.tell(new GetExpandedGoldenRecordsResponse(Either.left(new MpiServiceError.GoldenIdDoesNotExistError(
-               "Golden Records do not exist",
-               Collections.singletonList(request.goldenIds).toString()))));
-      } else {
-         request.replyTo.tell(new GetExpandedGoldenRecordsResponse(Either.right(goldenRecords)));
-      }
+      final var goldenRecords = libMPI.findExpandedGoldenRecords(request.goldenIds);
+      request.replyTo.tell(new GetExpandedGoldenRecordsResponse(goldenRecords));
       return Behaviors.same();
    }
 
    private Behavior<Event> getExpandedInteractionsHandler(final GetExpandedInteractionsRequest request) {
-      List<ExpandedInteraction> expandedInteractions = null;
-      try {
-         expandedInteractions = libMPI.findExpandedInteractions(request.patientIds);
-      } catch (Exception exception) {
-         LOGGER.error("libMPI.findExpandedPatientRecords failed for patientIds: {} with error: {}",
-                      request.patientIds,
-                      exception.getMessage());
-      }
-
-      if (expandedInteractions == null) {
-         request.replyTo.tell(new GetExpandedInteractionsResponse(Either.left(new MpiServiceError.InteractionIdDoesNotExistError(
-               "Patient Records do not exist",
-               Collections.singletonList(request.patientIds).toString()))));
-      } else {
-         request.replyTo.tell(new GetExpandedInteractionsResponse(Either.right(expandedInteractions)));
-      }
+      final var expandedInteractions = libMPI.findExpandedInteractions(request.patientIds);
+      request.replyTo.tell(new GetExpandedInteractionsResponse(expandedInteractions));
       return Behaviors.same();
    }
 
    private Behavior<Event> getInteractionHandler(final GetInteractionRequest request) {
-      Interaction interaction = null;
-      try {
-         interaction = libMPI.findInteraction(request.iid);
-      } catch (Exception exception) {
-         LOGGER.error("libMPI.findPatientRecord failed for patientId: {} with error: {}", request.iid, exception.getMessage());
-      }
-
-      if (interaction == null) {
-         request.replyTo.tell(new GetInteractionResponse(Either.left(new MpiServiceError.InteractionIdDoesNotExistError(
-               "Interaction not found",
-               request.iid))));
-      } else {
-         request.replyTo.tell(new GetInteractionResponse(Either.right(interaction)));
-      }
+      final var interaction = libMPI.findInteraction(request.iid);
+      request.replyTo.tell(new GetInteractionResponse(interaction));
       return Behaviors.same();
    }
 
@@ -418,13 +376,13 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
                                                            field.oldValue(),
                                                            field.newValue(),
                                                            field.name());
-         if (result) {
+         if (result.isEmpty()) {
             updatedFields.add(field);
          } else {
             LOGGER.error("Golden record field update {} update has failed.", field);
          }
       }
-      request.replyTo.tell(new UpdateGoldenRecordResponse(updatedFields));
+      request.replyTo.tell(new UpdateGoldenRecordResponse(Either.right(updatedFields)));
       return Behaviors.same();
    }
 
@@ -600,8 +558,7 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
    }
 
    public record CountRecordsResponse(
-         long goldenRecords,
-         long patientRecords) implements EventResponse {
+         Either<MpiGeneralError, Pair<Long, Long>> counts) implements EventResponse {
    }
 
    public record GetGidsPagedRequest(
@@ -610,7 +567,7 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
          long length) implements Event {
    }
 
-   public record GetGidsPagedResponse(List<String> goldenIds) implements EventResponse {
+   public record GetGidsPagedResponse(Either<MpiGeneralError, List<String>> goldenIds) implements EventResponse {
    }
 
    public record GetGoldenRecordAuditTrailRequest(
@@ -639,7 +596,7 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
    public record GetGidsAllRequest(ActorRef<GetGidsAllResponse> replyTo) implements Event {
    }
 
-   public record GetGidsAllResponse(List<String> records) implements EventResponse {
+   public record GetGidsAllResponse(Either<MpiGeneralError, List<String>> records) implements EventResponse {
    }
 
    public record GetConfigurationRequest(ActorRef<GetConfigurationResponse> replyTo) implements Event {
@@ -668,7 +625,8 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
          String client) implements Event {
    }
 
-   public record FindExpandedSourceIdResponse(List<ExpandedSourceId> records) implements EventResponse {
+   public record FindExpandedSourceIdResponse(
+         Either<MpiGeneralError, List<ExpandedSourceId>> records) implements EventResponse {
    }
 
    public record GetExpandedGoldenRecordRequest(
@@ -726,7 +684,9 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
          List<GoldenRecordUpdateRequestPayload.Field> fields) implements Event {
    }
 
-   public record UpdateGoldenRecordResponse(List<GoldenRecordUpdateRequestPayload.Field> fields) implements EventResponse {
+   public record UpdateGoldenRecordResponse(
+         Either<MpiGeneralError,
+               List<GoldenRecordUpdateRequestPayload.Field>> fields) implements EventResponse {
    }
 
    public record PostIidGidLinkRequest(
@@ -774,7 +734,7 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
    }
 
    public record PostFilterGidsResponse(
-         LibMPIPaginatedResultSet<String> goldenIds) implements EventResponse {
+         Either<MpiGeneralError, LibMPIPaginatedResultSet<String>> goldenIds) implements EventResponse {
    }
 
    public record PostFilterGidsWithInteractionCountRequest(
@@ -783,7 +743,7 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
    }
 
    public record PostFilterGidsWithInteractionCountResponse(
-         PaginatedGIDsWithInteractionCount goldenIds) implements EventResponse {
+         Either<MpiGeneralError, PaginatedGIDsWithInteractionCount> goldenIds) implements EventResponse {
    }
 
    public record PostCustomSearchGoldenRecordsRequest(
@@ -792,7 +752,7 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
    }
 
    public record PostSearchGoldenRecordsResponse(
-         LibMPIPaginatedResultSet<ExpandedGoldenRecord> records) implements EventResponse {
+         Either<MpiGeneralError, LibMPIPaginatedResultSet<ExpandedGoldenRecord>> records) implements EventResponse {
    }
 
    public record PostSimpleSearchInteractionsRequest(
@@ -806,7 +766,7 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
    }
 
    public record PostSearchInteractionsResponse(
-         LibMPIPaginatedResultSet<Interaction> records) implements EventResponse {
+         Either<MpiGeneralError, LibMPIPaginatedResultSet<Interaction>> records) implements EventResponse {
    }
 
    public record PostUploadCsvFileRequest(

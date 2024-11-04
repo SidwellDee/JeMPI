@@ -1,5 +1,6 @@
 package org.jembi.jempi.libmpi.dgraph;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.google.protobuf.ByteString;
@@ -16,7 +17,6 @@ import org.jembi.jempi.libmpi.MpiServiceError;
 import org.jembi.jempi.shared.config.DGraphConfig;
 import org.jembi.jempi.shared.models.*;
 import org.jembi.jempi.shared.utils.AppUtils;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +29,7 @@ import static org.jembi.jempi.shared.config.Config.FIELDS_CONFIG;
 
 final class DgraphMutations {
    public static final ObjectMapper OBJECT_MAPPER =
-           new ObjectMapper().disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).registerModule(new JavaTimeModule());
+         new ObjectMapper().disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).registerModule(new JavaTimeModule());
 
    private static final Logger LOGGER = LogManager.getLogger(DgraphMutations.class);
 
@@ -171,13 +171,13 @@ final class DgraphMutations {
 
          restoreSourceIds(sourceId, facility, patient);
          restoreInteraction(restoreInteraction,
-                                                sourceId,
-                                                restoreInteraction.interaction().sourceId().uid());
+                            sourceId,
+                            restoreInteraction.interaction().sourceId().uid());
 
          if (goldenID.isEmpty()) {
             createGoldenRecord(goldenRecord,
-                                          restoreInteraction.interaction().uid(),
-                                          restoreInteraction.interaction().sourceId().uid());
+                               restoreInteraction.interaction().uid(),
+                               restoreInteraction.interaction().sourceId().uid());
             goldenID = goldenRecord.goldenRecord().uid();
          } else {
             updateGoldenRecord(goldenID,
@@ -189,24 +189,30 @@ final class DgraphMutations {
       return goldenID;
    }
 
-   private String createGoldenRecord(final RestoreGoldenRecords goldenRecord, final String interactionID, final String sourceIdUid) {
+   private String createGoldenRecord(
+         final RestoreGoldenRecords goldenRecord,
+         final String interactionID,
+         final String sourceIdUid) {
       var goldenDemographicData = DemographicData.fromCustomDemographicData(goldenRecord.goldenRecord().demographicData());
       var goldenData = new Interaction(
-              null,
-              null,
-              AuxInteractionData.fromCustomAuxInteractionData(goldenRecord.goldenRecord().auxInteractionData()),
-              goldenDemographicData);
+            null,
+            null,
+            AuxInteractionData.fromCustomAuxInteractionData(goldenRecord.goldenRecord().auxInteractionData()),
+            goldenDemographicData);
 
       return cloneGoldenRecordFromInteractionWithGoldenUid(
-              goldenRecord.goldenRecord().uid(),
-              goldenData.demographicData(),
-              interactionID,
-              sourceIdUid,
-              1.0F,
-              new AuxGoldenRecordData(goldenData.auxInteractionData()));
+            goldenRecord.goldenRecord().uid(),
+            goldenData.demographicData(),
+            interactionID,
+            sourceIdUid,
+            1.0F,
+            new AuxGoldenRecordData(goldenData.auxInteractionData()));
    }
 
-   private void updateGoldenRecord(final String goldenID, final String interactionID, final String sourceIdUid) {
+   private void updateGoldenRecord(
+         final String goldenID,
+         final String interactionID,
+         final String sourceIdUid) {
       var interactionScoreList = new ArrayList<DgraphPairWithScore>();
       var goldenIdScore = new LibMPIClientInterface.GoldenIdScore(goldenID, 1.0F);
 
@@ -215,34 +221,40 @@ final class DgraphMutations {
       addSourceId(goldenID, sourceIdUid);
    }
 
-   private String restoreInteraction(final ApiModels.RestoreInteractionRecord restoreInteraction, final SourceId sourceId, final String sourceIdUid) {
+   private String restoreInteraction(
+         final ApiModels.RestoreInteractionRecord restoreInteraction,
+         final SourceId sourceId,
+         final String sourceIdUid) {
       var interactionDemographicData = DemographicData.fromCustomDemographicData(
-              restoreInteraction.interaction().demographicData());
+            restoreInteraction.interaction().demographicData());
 
       var interaction = new Interaction(
             restoreInteraction.interaction().uid(),
-              sourceId,
-              AuxInteractionData.fromCustomAuxInteractionData(restoreInteraction.interaction().auxInteractionData()),
-              interactionDemographicData);
+            sourceId,
+            AuxInteractionData.fromCustomAuxInteractionData(restoreInteraction.interaction().auxInteractionData()),
+            interactionDemographicData);
 
       var interactionNquads = createInteractionTripleWithUid(
-              interaction.interactionId(),
-              interaction.auxInteractionData(),
-              interaction.demographicData(),
-              sourceIdUid);
+            interaction.interactionId(),
+            interaction.auxInteractionData(),
+            interaction.demographicData(),
+            sourceIdUid);
 
       var interactionMutation = DgraphProto.Mutation.newBuilder()
-              .setSetNquads(ByteString.copyFromUtf8(interactionNquads))
-              .build();
+                                                    .setSetNquads(ByteString.copyFromUtf8(interactionNquads))
+                                                    .build();
 
       return DgraphClient.getInstance().doMutateTransaction(interactionMutation);
    }
 
-   private String restoreSourceIds(final SourceId sourceId, final String facility, final String patient) {
+   private String restoreSourceIds(
+         final SourceId sourceId,
+         final String facility,
+         final String patient) {
       var restoreSourceIdQuery = restoreSourceIdQuery(sourceId);
       var sourceIdMutation = DgraphProto.Mutation.newBuilder()
-              .setSetNquads(ByteString.copyFromUtf8(restoreSourceIdQuery))
-              .build();
+                                                 .setSetNquads(ByteString.copyFromUtf8(restoreSourceIdQuery))
+                                                 .build();
 
       var sourceIdList = DgraphQueries.findSourceIdList(facility, patient);
       if (sourceIdList.isEmpty()) {
@@ -426,12 +438,12 @@ final class DgraphMutations {
          final float score,
          final AuxGoldenRecordData customUniqueGoldenRecordData) {
       final var command = DgraphMutations.createLinkedGoldenRecordTripleWithGoldenUID(
-                                                                         goldenUID,
-                                                                         customUniqueGoldenRecordData,
-                                                                         interaction,
-                                                                         interactionUID,
-                                                                         sourceUID,
-                                                                         score);
+            goldenUID,
+            customUniqueGoldenRecordData,
+            interaction,
+            interactionUID,
+            sourceUID,
+            score);
       final DgraphProto.Mutation mutation =
             DgraphProto.Mutation.newBuilder().setSetNquads(ByteString.copyFromUtf8(command)).build();
       return DgraphClient.getInstance().doMutateTransaction(mutation);
@@ -562,6 +574,13 @@ final class DgraphMutations {
    }
 
    Option<MpiGeneralError> createSchema() {
+      LOGGER.debug("DGRAPH_CONFIG.mutationCreateAdditionalNodeType :\n{}", DGRAPH_CONFIG.mutationCreateAdditionalNodeType);
+      LOGGER.debug("DGRAPH_CONFIG.mutationCreateGoldenRecordType :\n{}", DGRAPH_CONFIG.mutationCreateGoldenRecordType);
+      LOGGER.debug("DGRAPH_CONFIG.mutationCreateInteractionType  :\n{}", DGRAPH_CONFIG.mutationCreateInteractionType);
+      LOGGER.debug("DGRAPH_CONFIG.mutationCreateAdditionalNodeFields :\n{}", DGRAPH_CONFIG.mutationCreateAdditionalNodeFields);
+      LOGGER.debug("DGRAPH_CONFIG.mutationCreateGoldenRecordFields :\n{}", DGRAPH_CONFIG.mutationCreateGoldenRecordFields);
+      LOGGER.debug("DGRAPH_CONFIG.mutationCreateInteractionFields :\n{}", DGRAPH_CONFIG.mutationCreateInteractionFields);
+
       final var schema =
             DGRAPH_CONFIG.mutationCreateAdditionalNodeType
             + System.lineSeparator()

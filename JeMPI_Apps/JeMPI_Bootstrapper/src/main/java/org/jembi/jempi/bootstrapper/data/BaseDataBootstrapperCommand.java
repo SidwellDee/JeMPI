@@ -1,13 +1,15 @@
 package org.jembi.jempi.bootstrapper.data;
 
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jembi.jempi.bootstrapper.utils.BootstrapperLogger;
 import picocli.CommandLine;
 
 import java.util.concurrent.Callable;
 
 public abstract class BaseDataBootstrapperCommand<T extends DataBootstrapper> implements Callable<Integer> {
-   protected static final Logger LOGGER = BootstrapperLogger.getLogger("DataBootstrapperCLI");
+   private static final Logger LOGGER = LogManager.getLogger(BaseDataBootstrapperCommand.class);
+
+//   protected static final Logger LOGGER = BootstrapperLogger.getLogger("DataBootstrapperCLI");
 
    @CommandLine.Option(names = "config", scope = CommandLine.ScopeType.INHERIT)
    protected String config;

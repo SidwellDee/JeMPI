@@ -29,6 +29,7 @@ public final class AppConfig {
    public static final String POSTGRESQL_PASSWORD = CONFIG.getString("POSTGRESQL_PASSWORD");
    public static final String POSTGRESQL_NOTIFICATIONS_DB = CONFIG.getString("POSTGRESQL_NOTIFICATIONS_DB");
    public static final String POSTGRESQL_AUDIT_DB = CONFIG.getString("POSTGRESQL_AUDIT_DB");
+   public static final String POSTGRESQL_MPI_DB = CONFIG.getString("POSTGRESQL_MPI_DB");
    public static final String KAFKA_BOOTSTRAP_SERVERS = CONFIG.getString("KAFKA_BOOTSTRAP_SERVERS");
    private static final String[] DGRAPH_ALPHA_HOSTS = CONFIG.getString("DGRAPH_HOSTS").split(",");
    private static final int[] DGRAPH_ALPHA_PORTS = Arrays.stream(CONFIG.getString("DGRAPH_PORTS").split(",")).mapToInt(s -> {

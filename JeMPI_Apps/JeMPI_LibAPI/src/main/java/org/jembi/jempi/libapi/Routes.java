@@ -7,6 +7,7 @@ import akka.http.javadsl.marshallers.jackson.Jackson;
 import akka.http.javadsl.marshalling.Marshaller;
 import akka.http.javadsl.model.*;
 import akka.http.javadsl.server.Route;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jembi.jempi.libmpi.MpiServiceError;
@@ -14,7 +15,7 @@ import org.jembi.jempi.shared.models.*;
 import org.jembi.jempi.shared.models.ApiModels.ApiInteraction;
 import org.jembi.jempi.shared.models.ConfigurationModel.Configuration;
 import org.jembi.jempi.shared.utils.AppUtils;
-import com.fasterxml.jackson.core.JsonProcessingException;
+
 import java.io.File;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
@@ -135,8 +136,8 @@ public final class Routes {
                               return handleError(result.failed().get());
                            }
                            return complete(StatusCodes.OK,
-                                           new ApiModels.ApiNumberOfRecords(result.get().goldenRecords(),
-                                                                            result.get().patientRecords()),
+                                           new ApiModels.ApiNumberOfRecords(result.get().counts().get().getLeft(),
+                                                                            result.get().counts().get().getRight()),
                                            JSON_MARSHALLER);
                         });
    }
@@ -500,7 +501,7 @@ public final class Routes {
          }
          return complete(StatusCodes.OK, response.get(), JSON_MARSHALLER);
 
-                    }));
+      }));
    }
 
    private static CompletionStage<Boolean> processOnNotificationResolution(
@@ -667,7 +668,7 @@ public final class Routes {
                                () -> ProxyRoutes.proxyPostCrUpdateFields(linkerIP, linkerPort, http)),
                           path(GlobalConstants.SEGMENT_PROXY_POST_CIVIL_RECORD,
                                () -> ProxyRoutes.proxyPostCivilRecord(linkerIP, linkerPort, http))
-                          )),
+                                     )),
                     get(() -> concat(
                           path(GlobalConstants.SEGMENT_COUNT_INTERACTIONS,
                                () -> Routes.countInteractions(actorSystem, backEnd)),

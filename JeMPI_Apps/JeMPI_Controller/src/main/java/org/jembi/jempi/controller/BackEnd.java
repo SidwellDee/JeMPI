@@ -102,7 +102,8 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
                           host,
                           port,
                           AppConfig.KAFKA_BOOTSTRAP_SERVERS,
-                          "CLIENT_ID_CONTROLLER-" + UUID.randomUUID());
+                          "CLIENT_ID_CONTROLLER-" + UUID.randomUUID(),
+                          new LibMPI.PgConfig(AppConfig.POSTGRESQL_IP, AppConfig.POSTGRESQL_PORT, AppConfig.POSTGRESQL_USER, AppConfig.POSTGRESQL_PASSWORD, AppConfig.POSTGRESQL_MPI_DB));
    }
 
    /**
@@ -143,8 +144,7 @@ public final class BackEnd extends AbstractBehavior<BackEnd.Event> {
       final var dashboardData = new HashMap<String, Object>();
       final var linkStatsMeta = LinkStatsMetaCache.get();
       if (linkStatsMeta != null) {
-         dashboardData.put("linker_stats", new LinkerStats(libMPI.countGoldenRecords(), libMPI.countInteractions()));
-
+         dashboardData.put("linker_stats", new LinkerStats(libMPI.countGoldenRecords().get(), libMPI.countInteractions().get()));
 
          final var objectNode = OBJECT_MAPPER.createObjectNode();
          IntStream.range(0, linkStatsMeta.fieldTallies().fieldTallies().size())

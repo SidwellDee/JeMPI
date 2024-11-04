@@ -241,8 +241,10 @@ public final class Ask {
                  replyTo -> new BackEnd.PostSimpleSearchGoldenRecordsRequest(replyTo, searchRequestPayload),
                  java.time.Duration.ofSeconds(GlobalConstants.TIMEOUT_DGRAPH_QUERY_SECS),
                  actorSystem.scheduler());
-      return stage.thenApply(response -> ApiModels.ApiExpandedGoldenRecordsPaginatedResultSet.fromLibMPIPaginatedResultSet(
-            response.records()));
+      return stage.thenApply(
+            response -> ApiModels
+                  .ApiExpandedGoldenRecordsPaginatedResultSet
+                  .fromLibMPIPaginatedResultSet(response.records().get()));
    }
 
    static CompletionStage<ApiModels.ApiPaginatedResultSet> postFilterGids(
@@ -254,7 +256,8 @@ public final class Ask {
                  replyTo -> new BackEnd.PostFilterGidsRequest(replyTo, filterRequestPayload),
                  java.time.Duration.ofSeconds(GlobalConstants.TIMEOUT_DGRAPH_QUERY_SECS),
                  actorSystem.scheduler());
-      return stage.thenApply(response -> ApiModels.ApiFilteredGidsPaginatedResultSet.fromLibMPIPaginatedResultSet(response.goldenIds()));
+      return stage.thenApply(response -> ApiModels.ApiFilteredGidsPaginatedResultSet.fromLibMPIPaginatedResultSet(response.goldenIds()
+                                                                                                                          .get()));
    }
 
    static CompletionStage<ApiModels.ApiPaginatedResultSet> postFilterGidsWithInteractionCount(
@@ -267,7 +270,7 @@ public final class Ask {
                  java.time.Duration.ofSeconds(GlobalConstants.TIMEOUT_DGRAPH_QUERY_SECS),
                  actorSystem.scheduler());
       return stage.thenApply(response -> ApiModels.ApiFilteredGidsWithInteractionCountPaginatedResultSet.fromPaginatedGidsWithInteractionCount(
-            response.goldenIds()));
+            response.goldenIds().get()));
    }
 
    static CompletionStage<ApiModels.ApiPaginatedResultSet> postSimpleSearchInteractions(
@@ -279,7 +282,8 @@ public final class Ask {
                  replyTo -> new BackEnd.PostSimpleSearchInteractionsRequest(replyTo, simpleSearchRequestPayload),
                  java.time.Duration.ofSeconds(GlobalConstants.TIMEOUT_DGRAPH_QUERY_SECS),
                  actorSystem.scheduler());
-      return stage.thenApply(response -> ApiModels.ApiInteractionsPaginatedResultSet.fromLibMPIPaginatedResultSet(response.records()));
+      return stage.thenApply(response -> ApiModels.ApiInteractionsPaginatedResultSet.fromLibMPIPaginatedResultSet(response.records()
+                                                                                                                          .get()));
    }
 
    static CompletionStage<ApiModels.ApiPaginatedResultSet> postCustomSearchGoldenRecords(
@@ -292,7 +296,7 @@ public final class Ask {
                  java.time.Duration.ofSeconds(GlobalConstants.TIMEOUT_DGRAPH_QUERY_SECS),
                  actorSystem.scheduler());
       return stage.thenApply(response -> ApiModels.ApiExpandedGoldenRecordsPaginatedResultSet.fromLibMPIPaginatedResultSet(
-            response.records()));
+            response.records().get()));
    }
 
    static CompletionStage<ApiModels.ApiPaginatedResultSet> postCustomSearchInteractions(
@@ -304,7 +308,8 @@ public final class Ask {
                  replyTo -> new BackEnd.PostCustomSearchInteractionsRequest(replyTo, customSearchRequestPayload),
                  java.time.Duration.ofSeconds(GlobalConstants.TIMEOUT_DGRAPH_QUERY_SECS),
                  actorSystem.scheduler());
-      return stage.thenApply(response -> ApiModels.ApiInteractionsPaginatedResultSet.fromLibMPIPaginatedResultSet(response.records()));
+      return stage.thenApply(response -> ApiModels.ApiInteractionsPaginatedResultSet.fromLibMPIPaginatedResultSet(response.records()
+                                                                                                                          .get()));
    }
 
    static CompletionStage<BackEnd.PostUpdateNotificationResponse> postUpdateNotification(

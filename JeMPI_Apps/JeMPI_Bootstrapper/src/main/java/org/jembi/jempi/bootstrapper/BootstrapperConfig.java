@@ -2,6 +2,7 @@ package org.jembi.jempi.bootstrapper;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.File;
@@ -9,7 +10,9 @@ import java.util.Arrays;
 
 public class BootstrapperConfig {
 
-   public final  String POSTGRESQL_IP;
+   private static final Logger LOGGER = LogManager.getLogger(BootstrapperConfig.class);
+
+   public final String POSTGRESQL_IP;
    public final Integer POSTGRESQL_PORT;
    public final String POSTGRESQL_USER;
    public final String POSTGRESQL_PASSWORD;
@@ -50,23 +53,22 @@ public class BootstrapperConfig {
    }
 
    public static BootstrapperConfig create(
-         final String filepath,
-         final Logger logger) {
-      return new BootstrapperConfig(new Builder(logger).withOptionalFile(filepath)
-                                                       .withSystemEnvironment()
-                                                       .withSystemProperties()
-                                                       .build());
+         final String filepath) {
+      return new BootstrapperConfig(new Builder().withOptionalFile(filepath)
+                                                 .withSystemEnvironment()
+                                                 .withSystemProperties()
+                                                 .build());
    }
 
    private static class Builder {
 
       private static final Config SYSTEM_PROPERTIES = ConfigFactory.systemProperties();
       private static final Config SYSTEM_ENVIRONMENT = ConfigFactory.systemEnvironment();
-      private final Logger logger;
+      //      private final Logger logger;
       private Config conf = ConfigFactory.empty();
 
-      Builder(final Logger logger) {
-         this.logger = logger;
+      Builder() {
+//         this.logger = logger;
       }
 
       // This should return the current executing user path
@@ -94,10 +96,10 @@ public class BootstrapperConfig {
             secureConfFile = new File(getExecutionDirectory() + path);
          }
          if (secureConfFile.exists()) {
-            this.logger.info("Loaded config file from path ({})", path);
+            LOGGER.info("Loaded config file from path ({})", path);
             conf = conf.withFallback(ConfigFactory.parseFile(secureConfFile));
          } else {
-            this.logger.info("Attempted to load file from path ({}) but it was not found", path);
+            LOGGER.info("Attempted to load file from path ({}) but it was not found", path);
          }
          return this;
       }

@@ -2,262 +2,282 @@ package org.jembi.jempi.libmpi.postgresql;
 
 import io.vavr.control.Either;
 import io.vavr.control.Option;
-import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jembi.jempi.libmpi.LibMPIClientInterface;
+import org.jembi.jempi.libmpi.MpiException;
 import org.jembi.jempi.libmpi.MpiGeneralError;
+import org.jembi.jempi.libmpi.MpiServiceError;
 import org.jembi.jempi.libmpi.common.PaginatedResultSet;
 import org.jembi.jempi.shared.models.*;
 
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.List;
 
 public final class LibPostgreSQL implements LibMPIClientInterface {
 
    private static final Logger LOGGER = LogManager.getLogger(LibPostgreSQL.class);
+   private PsqlClient psqlClient;
 
-   public LibPostgreSQL(
-         final Level level,
-         final String[] host,
-         final int[] port) {
+   public LibPostgreSQL(final String pgIp,
+                        final Integer pgPort,
+                        final String pgUser,
+                        final String pgPassword,
+                        final String pgDb) {
       LOGGER.info("{}", "LibPostgreSQL Constructor");
-      LOGGER.info("{} {}", host, port);
-      PsqlQueries.connect();
-      PsqlMutations.connect();
+      LOGGER.info("{}", pgIp);
+      psqlClient = new PsqlClient(pgIp, pgPort, pgUser, pgPassword, pgDb);
+      connect();
    }
 
    @Override
-   public void connect() {
-      PsqlQueries.connect();
+   public Option<MpiGeneralError> connect() {
+      try {
+         PsqlQueries.connect(psqlClient);
+         PsqlMutations.connect(psqlClient);
+         return Option.none();
+      } catch (SQLException | MpiException e) {
+         LOGGER.error(e.getMessage(), e);
+         return Option.of(new MpiServiceError.InternalError(e.getMessage()));
+      }
    }
 
    @Override
    public Option<MpiGeneralError> dropAll() {
       LOGGER.error("LibPostgreSQL dropAll error");
-      return null;
+      return Option.of(new MpiServiceError.NotImplementedError("dropAll"));
    }
 
    @Override
    public Option<MpiGeneralError> dropAllData() {
       LOGGER.error("LibPostgreSQL dropAllData error");
-      return null;
+      return Option.of(new MpiServiceError.NotImplementedError("dropAllData"));
    }
 
    @Override
    public Option<MpiGeneralError> createSchema() {
       LOGGER.error("LibPostgreSQL createSchema error");
-      return null;
+      return Option.of(new MpiServiceError.NotImplementedError("createSchema"));
    }
 
    @Override
-   public long countInteractions() {
-//      LOGGER.debug("countInteractions");
-      return PsqlQueries.countInteractions();
+   public Either<MpiGeneralError, Long> countInteractions() {
+      return PsqlQueries.countInteractions(psqlClient);
    }
 
    @Override
-   public long countGoldenRecords() {
-//      LOGGER.debug("countGoldenRecords");
-      return PsqlQueries.countGoldenRecords();
+   public Either<MpiGeneralError, Long> countGoldenRecords() {
+      return PsqlQueries.countGoldenRecords(psqlClient);
    }
 
    @Override
-   public List<SourceId> findSourceId(
+   public Either<MpiGeneralError, List<SourceId>> findSourceId(
          final String facility,
          final String client) {
       LOGGER.error("LibPostgreSQL findSourceId error");
-      return List.of();
+      return Either.left(new MpiServiceError.NotImplementedError("findSourceId"));
    }
 
    @Override
-   public List<ExpandedSourceId> findExpandedSourceIdList(
+   public Either<MpiGeneralError, List<ExpandedSourceId>> findExpandedSourceIdList(
          final String facility,
          final String client) {
       LOGGER.error("LibPostgreSQL findExpandedSourceIdList error");
-      return List.of();
+      return Either.left(new MpiServiceError.NotImplementedError("findExpandedSourceIdList"));
    }
 
    @Override
-   public Interaction findInteraction(final String interactionID) {
+   public Either<MpiGeneralError, Interaction> findInteraction(final String interactionID) {
       LOGGER.error("LibPostgreSQL findInteraction error");
-      return null;
+      return Either.left(new MpiServiceError.NotImplementedError("findInteraction"));
    }
 
    @Override
-   public List<Interaction> findInteractions(final List<String> interactionIDs) {
+   public Either<MpiGeneralError, List<Interaction>> findInteractions(final List<String> interactionIDs) {
       LOGGER.error("LibPostgreSQL findInteractions error");
-      return List.of();
+      return Either.left(new MpiServiceError.NotImplementedError("findInetractions"));
    }
 
    @Override
-   public List<ExpandedInteraction> findExpandedInteractions(final List<String> interactionIDs) {
+   public Either<MpiGeneralError, List<ExpandedInteraction>> findExpandedInteractions(final List<String> interactionIDs) {
       LOGGER.error("LibPostgreSQL findExpandedInteractions error");
-      return List.of();
+      return Either.left(new MpiServiceError.NotImplementedError("findExpandedInteractions"));
    }
 
    @Override
    public Either<MpiGeneralError, PaginatedResultSet<GoldenRecord>> findGoldenRecords(final List<String> goldenIds) {
       LOGGER.error("LibPostgreSQL findGoldenRecords error");
-      return null;
+      return Either.left(new MpiServiceError.NotImplementedError("findGoldenRecords"));
    }
 
    @Override
-   public PaginatedResultSet<ExpandedGoldenRecord> findExpandedGoldenRecords(final List<String> goldenIds) {
-//      LOGGER.debug("findExpandedGoldenRecords");
-      return PsqlQueries.findExpandedGoldenRecords(goldenIds);
+   public Either<MpiGeneralError, PaginatedResultSet<ExpandedGoldenRecord>> findExpandedGoldenRecords(final List<String> goldenIds) {
+      return PsqlQueries.findExpandedGoldenRecords(psqlClient, goldenIds);
    }
 
    @Override
-   public List<String> findGoldenIds() {
-//      LOGGER.debug("findGoldenIds");
-      return PsqlQueries.findGoldenIds();
+   public Either<MpiGeneralError, List<String>> findGoldenIds() {
+      return PsqlQueries.findGoldenIds(psqlClient);
    }
 
    @Override
-   public List<String> fetchGoldenIds(
+   public Either<MpiGeneralError, List<String>> fetchGoldenIds(
          final long offset,
          final long length) {
       LOGGER.error("LibPostgreSQL fetchGoldenIds error");
-      return List.of();
+      return Either.left(new MpiServiceError.NotImplementedError("fetchGoldenIds"));
    }
 
    @Override
-   public List<GoldenRecord> findLinkCandidates(final DemographicData demographicData) {
-//      LOGGER.debug("findLinkCandidates");
-      return PsqlQueries.findLinkCandidates(demographicData);
+   public Either<MpiGeneralError, List<GoldenRecord>> findLinkCandidates(final DemographicData demographicData) {
+      return PsqlQueries.findLinkCandidates(psqlClient, demographicData);
    }
 
    @Override
-   public String restoreGoldenRecord(final RestoreGoldenRecords goldenRecord) {
+   public Either<MpiGeneralError, String> restoreGoldenRecord(final RestoreGoldenRecords goldenRecord) {
       LOGGER.error("LibPostgreSQL restoreGoldenRecord error");
-      return "";
+      return Either.left(new MpiServiceError.NotImplementedError("restoreGoldenRecord"));
    }
 
    @Override
-   public List<GoldenRecord> findMatchCandidates(final DemographicData demographicData) {
+   public Either<MpiGeneralError, List<GoldenRecord>> findMatchCandidates(final DemographicData demographicData) {
       LOGGER.error("LibPostgreSQL findMatchCandidates error");
-      return List.of();
+      return Either.left(new MpiServiceError.NotImplementedError("findMatchCandidates"));
    }
 
    @Override
-   public PaginatedResultSet<ExpandedGoldenRecord> simpleSearchGoldenRecords(
+   public Either<MpiGeneralError, PaginatedResultSet<ExpandedGoldenRecord>> simpleSearchGoldenRecords(
          final List<ApiModels.ApiSearchParameter> params,
          final Integer offset,
          final Integer limit,
          final String sortBy,
          final Boolean sortAsc) {
-//      LOGGER.debug("customSearchGoldenRecords");
-      return PsqlQueries.simpleSearchGoldenRecords(params, offset, limit, sortBy, sortAsc);
+      return PsqlQueries.simpleSearchGoldenRecords(psqlClient, params, offset, limit, sortBy, sortAsc);
    }
 
    @Override
-   public PaginatedResultSet<ExpandedGoldenRecord> customSearchGoldenRecords(
+   public Either<MpiGeneralError, PaginatedResultSet<ExpandedGoldenRecord>> customSearchGoldenRecords(
          final List<ApiModels.ApiSimpleSearchRequestPayload> params,
          final Integer offset,
          final Integer limit,
          final String sortBy,
          final Boolean sortAsc) {
       LOGGER.error("LibPostgreSQL customSearchGoldenRecords error");
-      return null;
+      return Either.left(new MpiServiceError.NotImplementedError("customSearchGoldenRecords"));
    }
 
    @Override
-   public PaginatedResultSet<Interaction> simpleSearchInteractions(
+   public Either<MpiGeneralError, PaginatedResultSet<Interaction>> simpleSearchInteractions(
          final List<ApiModels.ApiSearchParameter> params,
          final Integer offset,
          final Integer limit,
          final String sortBy,
          final Boolean sortAsc) {
       LOGGER.error("LibPostgreSQL simpleSearchInteractions error");
-      return null;
+      return Either.left(new MpiServiceError.NotImplementedError("simpleSearchInteractions"));
    }
 
    @Override
-   public PaginatedResultSet<Interaction> customSearchInteractions(
+   public Either<MpiGeneralError, PaginatedResultSet<Interaction>> customSearchInteractions(
          final List<ApiModels.ApiSimpleSearchRequestPayload> params,
          final Integer offset,
          final Integer limit,
          final String sortBy,
          final Boolean sortAsc) {
       LOGGER.error("LibPostgreSQL customSearchInteractions error");
-      return null;
+      return Either.left(new MpiServiceError.NotImplementedError("customSearchInteractions"));
    }
 
    @Override
-   public LibMPIPaginatedResultSet<String> filterGids(
+   public Either<MpiGeneralError, LibMPIPaginatedResultSet<String>> filterGids(
          final List<ApiModels.ApiSearchParameter> params,
          final LocalDateTime createdAt,
          final PaginationOptions paginationOptions) {
       LOGGER.error("LibPostgreSQL filterGids error");
-      return null;
+      return Either.left(new MpiServiceError.NotImplementedError("filterGids"));
    }
 
    @Override
-   public PaginatedGIDsWithInteractionCount filterGidsWithInteractionCount(
+   public Either<MpiGeneralError, PaginatedGIDsWithInteractionCount> filterGidsWithInteractionCount(
          final List<ApiModels.ApiSearchParameter> params,
          final LocalDateTime createdAt,
          final PaginationOptions paginationOptions) {
       LOGGER.error("LibPostgreSQL filterGidsWithInteractionCount error");
-      return null;
+      return Either.left(new MpiServiceError.NotImplementedError("filterGidsWithInteractionCount"));
    }
 
    @Override
    public Either<MpiGeneralError, PaginatedResultSet<GoldenRecord>> apiCrFindGoldenRecords(final ApiModels.ApiCrFindRequest request) {
       LOGGER.error("LibPostgreSQL apiCrFindGoldenRecords error");
-      return null;
+      return Either.left(new MpiServiceError.NotImplementedError("apiCrFindGoldenRecords"));
    }
 
    @Override
-   public Either<MpiGeneralError,  ApiModels.ApiCivilRecordResponse> insertCivilRecord(
+   public Either<MpiGeneralError, ApiModels.ApiCivilRecordResponse> insertCivilRecord(
          final String auxId,
          final DemographicData demographicData) {
-      return PsqlMutations.insertCivilRecord(auxId, demographicData);
+      try {
+         final var result = PsqlMutations.insertCivilRecord(psqlClient, auxId, demographicData);
+         return Either.right(result);
+      } catch (SQLException | MpiException e) {
+         LOGGER.error(e.getMessage(), e);
+         return Either.left(new MpiServiceError.InternalError(e.getMessage()));
+      }
    }
 
    @Override
-   public boolean setScore(
+   public Option<MpiGeneralError> setScore(
          final String interactionUID,
          final String goldenRecordUid,
          final Float score) {
-//      LOGGER.debug("Set Score");
-      return PsqlMutations.setScore(interactionUID, goldenRecordUid, score);
+      try {
+         PsqlMutations.setScore(psqlClient, interactionUID, goldenRecordUid, score);
+         return Option.none();
+      } catch (SQLException | MpiException e) {
+         LOGGER.error(e.getLocalizedMessage(), e);
+         return Option.of(new MpiServiceError.InternalError(e.getLocalizedMessage()));
+      }
    }
 
    @Override
-   public boolean updateGoldenRecordField(
+   public Option<MpiGeneralError> updateGoldenRecordField(
          final String goldenId,
          final String fieldName,
          final String value) {
-//      LOGGER.debug("updateGoldenRecordField");
-      return PsqlMutations.updateField(goldenId, fieldName, value);
+      try {
+         PsqlMutations.updateField(psqlClient, goldenId, fieldName, value);
+         return Option.none();
+      } catch (SQLException | MpiException e) {
+         return Option.of(new MpiServiceError.InternalError(e.getMessage()));
+      }
    }
 
    @Override
-   public boolean updateGoldenRecordField(
+   public Option<MpiGeneralError> updateGoldenRecordField(
          final String goldenId,
          final String fieldName,
          final Boolean value) {
       LOGGER.error("LibPostgreSQL updateGoldenRecordField error");
-      return false;
+      return Option.of(new MpiServiceError.NotImplementedError("updateGoldenRecordField"));
    }
 
    @Override
-   public boolean updateGoldenRecordField(
+   public Option<MpiGeneralError> updateGoldenRecordField(
          final String goldenId,
          final String fieldName,
          final Double value) {
       LOGGER.error("LibPostgreSQL updateGoldenRecordField error");
-      return false;
+      return Option.of(new MpiServiceError.NotImplementedError("updateGoldenRecordField"));
    }
 
    @Override
-   public boolean updateGoldenRecordField(
+   public Option<MpiGeneralError> updateGoldenRecordField(
          final String goldenId,
          final String fieldName,
          final Long value) {
       LOGGER.error("LibPostgreSQL updateGoldenRecordField error");
-      return false;
+      return Option.of(new MpiServiceError.NotImplementedError("updateGoldenRecordField"));
    }
 
    @Override
@@ -265,8 +285,7 @@ public final class LibPostgreSQL implements LibMPIClientInterface {
          final String currentGoldenId,
          final String interactionId,
          final Float score) {
-//      LOGGER.debug("linkToNewGoldenRecord");
-      return PsqlMutations.linkToNewGoldenRecord(currentGoldenId, interactionId, score);
+      return PsqlMutations.linkToNewGoldenRecord(psqlClient, currentGoldenId, interactionId, score);
    }
 
    @Override
@@ -275,23 +294,33 @@ public final class LibPostgreSQL implements LibMPIClientInterface {
          final String newGoldenId,
          final String interactionId,
          final Float score) {
-//      LOGGER.debug("updateLink");
-      return PsqlMutations.updateLink(goldenId, newGoldenId, interactionId, score);
+      try {
+         final var result = PsqlMutations.updateLink(psqlClient, goldenId, newGoldenId, interactionId, score);
+         return Either.right(result);
+      } catch (SQLException | MpiException e) {
+         LOGGER.error(e.getMessage(), e);
+         return Either.left(new MpiServiceError.InternalError(e.getMessage()));
+      }
    }
 
    @Override
-   public LinkInfo createInteractionAndLinkToExistingGoldenRecord(
+   public Either<MpiGeneralError, LinkInfo> createInteractionAndLinkToExistingGoldenRecord(
          final Interaction interaction,
          final GoldenIdScore goldenIdScore) {
-//      LOGGER.debug("createInteractionAndLinkToExistingGoldenRecord ");
-      return PsqlMutations.createInteractionAndLinkToExistingGoldenRecord(interaction, goldenIdScore);
+      try {
+         final var result = PsqlMutations.createInteractionAndLinkToExistingGoldenRecord(psqlClient, interaction, goldenIdScore);
+         return Either.right(result);
+      } catch (SQLException | MpiException e) {
+         LOGGER.error(e.getMessage(), e);
+         return Either.left(new MpiServiceError.InternalError(e.getMessage()));
+      }
    }
 
    @Override
-   public LinkInfo createInteractionAndLinkToClonedGoldenRecord(
+   public Either<MpiGeneralError, LinkInfo> createInteractionAndLinkToClonedGoldenRecord(
          final Interaction interaction,
          final Float score) {
-//      LOGGER.debug("createInteractionAndLinkToClonedGoldenRecord");
-      return PsqlMutations.createInteractionAndLinkToClonedGoldenRecord(interaction, score);
+      return PsqlMutations.createInteractionAndLinkToClonedGoldenRecord(psqlClient, interaction, score);
    }
+
 }

@@ -1,13 +1,16 @@
 package org.jembi.jempi.bootstrapper.data.graph.dgraph;
 
 import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jembi.jempi.bootstrapper.data.DataBootstrapper;
-import org.jembi.jempi.bootstrapper.utils.BootstrapperLogger;
+//import org.jembi.jempi.bootstrapper.utils.BootstrapperLogger;
 import org.jembi.jempi.libmpi.dgraph.LibDgraph;
 
 public class DgraphDataBootstrapper extends DataBootstrapper {
-   protected static final Logger LOGGER = BootstrapperLogger.getChildLogger(DataBootstrapper.LOGGER, "DGraph");
+//   protected static final Logger LOGGER = LOgBootstrapperLogger.getChildLogger(DataBootstrapper.LOGGER, "DGraph");
+   private static final Logger LOGGER = LogManager.getLogger(DgraphDataBootstrapper.class);
+
    private LibDgraph libDgraph;
 
    public DgraphDataBootstrapper(final String configFilePath) {

@@ -49,13 +49,6 @@ public final class AuditTrailBridge {
             getSerializedEventData(eventData)
       );
 
-      try {
-         final var json = OBJECT_MAPPER.writeValueAsString(auditEvent);
-         LOGGER.info(json);
-      } catch (JsonProcessingException e) {
-         LOGGER.error(e.getLocalizedMessage(), e);
-      }
-
       topicAuditEvents.produceAsync(UUID.randomUUID().toString(),
                                     auditEvent,
                                     (metadata, exception) -> {

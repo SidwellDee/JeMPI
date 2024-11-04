@@ -3,10 +3,11 @@ package org.jembi.jempi.linker;
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.ActorSystem;
 import akka.http.javadsl.marshallers.jackson.Jackson;
+import akka.http.javadsl.marshalling.Marshaller;
+import akka.http.javadsl.model.RequestEntity;
 import akka.http.javadsl.model.StatusCode;
 import akka.http.javadsl.model.StatusCodes;
 import akka.http.javadsl.server.Route;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jembi.jempi.libmpi.MpiServiceError;
@@ -21,6 +22,7 @@ import static org.jembi.jempi.shared.utils.AppUtils.OBJECT_MAPPER;
 final class Routes {
 
    private static final Logger LOGGER = LogManager.getLogger(Routes.class);
+   private static final Marshaller<Object, RequestEntity> JSON_MARSHALLER = Jackson.marshaller(OBJECT_MAPPER);
 
    private Routes() {
    }
@@ -32,112 +34,38 @@ final class Routes {
       return code;
    }
 
-   static Route proxyPostCandidatesWithScore(
-         final ActorSystem<Void> actorSystem,
-         final ActorRef<BackEnd.Request> backEnd) {
-      return entity(Jackson.unmarshaller(ApiModels.ApiInteractionUid.class), request -> {
-         return onComplete(Ask.findCandidates(actorSystem, backEnd, request),
-                           response -> {
-                              if (!response.isSuccess()) {
-                                 final var e = response.failed().get();
-                                 LOGGER.error(e.getLocalizedMessage(), e);
-                                 return mapError(new MpiServiceError.InternalError(e.getLocalizedMessage()));
-                              }
-                              return response.get()
-                                             .candidates()
-                                             .mapLeft(MapError::mapError)
-                                             .fold(error -> error,
-                                                   candidateList -> complete(StatusCodes.OK,
-                                                                             candidateList,
-                                                                             Jackson.marshaller()));
-                           });
-      });
+   private static Route handleError(final Throwable e) {
+      LOGGER.error(e.getLocalizedMessage(), e);
+      return mapError(new MpiServiceError.InternalError(e.getLocalizedMessage()));
    }
 
    static Route proxyPostCalculateScores(
          final ActorSystem<Void> actorSystem,
          final ActorRef<BackEnd.Request> backEnd) {
       return entity(Jackson.unmarshaller(ApiModels.ApiCalculateScoresRequest.class),
-                    obj -> onComplete(Ask.postCalculateScores(actorSystem, backEnd, obj),
-                                      response -> {
-                                         if (!response.isSuccess()) {
-                                            final var e = response.failed().get();
-                                            LOGGER.error(e.getLocalizedMessage(), e);
-                                            return mapError(new MpiServiceError.InternalError(e.getLocalizedMessage()));
-                                         }
-                                         return complete(StatusCodes.OK, response.get(), Jackson.marshaller());
-                                      }));
-   }
-
-   static Route proxyGetCrCandidates(
-         final ActorSystem<Void> actorSystem,
-         final ActorRef<BackEnd.Request> backEnd) {
-      return entity(Jackson.unmarshaller(OBJECT_MAPPER, ApiModels.ApiCrCandidatesRequest.class),
-                    obj -> onComplete(Ask.getCrCandidates(actorSystem, backEnd, obj), response -> {
-                       if (!response.isSuccess()) {
-                          final var e = response.failed().get();
-                          LOGGER.error(e.getLocalizedMessage(), e);
-                          return mapError(new MpiServiceError.InternalError(e.getLocalizedMessage()));
+                    obj -> onComplete(Ask.postCalculateScores(actorSystem, backEnd, obj), result -> {
+                       if (!result.isSuccess()) {
+                          return handleError(result.failed().get());
                        }
-                       final var rsp = response.get();
-                       if (rsp.goldenRecords().isLeft()) {
-                          return mapError(rsp.goldenRecords().getLeft());
-                       }
-                       return complete(StatusCodes.OK,
-                                       new ApiModels.ApiCrCandidatesResponse(
-                                             rsp.goldenRecords()
-                                                .get()
-                                                .stream()
-                                                .map(ApiModels.ApiGoldenRecord::fromGoldenRecord)
-                                                .toList()),
-                                       Jackson.marshaller(OBJECT_MAPPER));
+                       return complete(StatusCodes.OK, result.get(), JSON_MARSHALLER);
                     }));
    }
 
-   static Route proxyGetCrFind(
+   static Route proxyPostCandidatesWithScore(
          final ActorSystem<Void> actorSystem,
          final ActorRef<BackEnd.Request> backEnd) {
-      return entity(Jackson.unmarshaller(OBJECT_MAPPER, ApiModels.ApiCrFindRequest.class),
-                    obj -> onComplete(Ask.getCrFind(actorSystem, backEnd, obj), response -> {
-                       if (!response.isSuccess()) {
-                          final var e = response.failed().get();
-                          LOGGER.error(e.getLocalizedMessage(), e);
-                          return mapError(new MpiServiceError.InternalError(e.getLocalizedMessage()));
+      return entity(Jackson.unmarshaller(ApiModels.ApiInteractionUid.class),
+                    obj -> onComplete(Ask.findCandidates(actorSystem, backEnd, obj), result -> {
+                       if (!result.isSuccess()) {
+                          return handleError(result.failed().get());
                        }
-                       final var rsp = response.get();
-                       if (rsp.goldenRecords().isLeft()) {
-                          return mapError(rsp.goldenRecords().getLeft());
-                       }
-                       return complete(StatusCodes.OK,
-                                       new ApiModels.ApiCrCandidatesResponse(
-                                             rsp.goldenRecords()
-                                                .get()
-                                                .stream()
-                                                .map(ApiModels.ApiGoldenRecord::fromGoldenRecord)
-                                                .toList()),
-                                       Jackson.marshaller(OBJECT_MAPPER));
-                    }));
-   }
-
-
-   static Route proxyPostCrRegister(
-         final ActorSystem<Void> actorSystem,
-         final ActorRef<BackEnd.Request> backEnd) {
-      return entity(Jackson.unmarshaller(OBJECT_MAPPER, ApiModels.ApiCrRegisterRequest.class),
-                    obj -> onComplete(Ask.postCrRegister(actorSystem, backEnd, obj), response -> {
-                       if (!response.isSuccess()) {
-                          final var e = response.failed().get();
-                          LOGGER.error(e.getLocalizedMessage(), e);
-                          return mapError(new MpiServiceError.InternalError(e.getLocalizedMessage()));
-                       }
-                       final var rsp = response.get();
-                       if (rsp.linkInfo().isLeft()) {
-                          return mapError(rsp.linkInfo().getLeft());
-                       } else {
-                          return complete(StatusCodes.OK,
-                                          new ApiModels.ApiCrRegisterResponse(rsp.linkInfo().get()),
-                                          Jackson.marshaller(OBJECT_MAPPER));
-                       }
+                       return result.get()
+                                    .candidates()
+                                    .mapLeft(MapError::mapError)
+                                    .fold(error -> error,
+                                          candidateList -> complete(StatusCodes.OK,
+                                                                    candidateList,
+                                                                    JSON_MARSHALLER));
                     }));
    }
 
@@ -145,37 +73,17 @@ final class Routes {
          final ActorSystem<Void> actorSystem,
          final ActorRef<BackEnd.Request> backEnd) {
       return entity(Jackson.unmarshaller(OBJECT_MAPPER, ApiModels.ApiCrLinkToGidUpdateRequest.class),
-                    obj -> onComplete(Ask.postCrLinkToGidUpdate(actorSystem, backEnd, obj), response -> {
-                       if (!response.isSuccess()) {
-                          final var e = response.failed().get();
-                          LOGGER.error(e.getLocalizedMessage(), e);
-                          return mapError(new MpiServiceError.InternalError(e.getLocalizedMessage()));
+                    obj -> onComplete(Ask.postCrLinkToGidUpdate(actorSystem, backEnd, obj), result -> {
+                       if (!result.isSuccess()) {
+                          return handleError(result.failed().get());
                        }
-                       final var rsp = response.get();
-                       try {
-                          if (rsp.linkInfo().isLeft()) {
-                             LOGGER.warn("{}", OBJECT_MAPPER.writeValueAsString(rsp.linkInfo().getLeft()));
-                          } else {
-                             LOGGER.debug("{}", OBJECT_MAPPER.writeValueAsString(rsp.linkInfo().get()));
-                          }
-                       } catch (JsonProcessingException e) {
-                          LOGGER.error(e.getLocalizedMessage(), e);
-                       }
-                       if (rsp.linkInfo().isLeft()) {
-                          final var error = rsp.linkInfo().getLeft();
-                          try {
-                             LOGGER.warn("Error: {}", OBJECT_MAPPER.writeValueAsString(error));
-                          } catch (JsonProcessingException e) {
-                             LOGGER.error(e.getLocalizedMessage(), e);
-                          }
-                          return mapError(error);
-                       } else {
-                          final var result = rsp.linkInfo().get();
-                          LOGGER.debug("OK: {}", result);
-                          return complete(StatusCodes.OK,
-                                          new ApiModels.ApiCrLinkUpdateResponse(result),
-                                          Jackson.marshaller(OBJECT_MAPPER));
-                       }
+                       return result.get()
+                                    .linkInfo()
+                                    .mapLeft(MapError::mapError)
+                                    .fold(error -> error,
+                                          r -> complete(StatusCodes.OK,
+                                                        new ApiModels.ApiCrLinkUpdateResponse(r),
+                                                        JSON_MARSHALLER));
                     }));
    }
 
@@ -183,37 +91,17 @@ final class Routes {
          final ActorSystem<Void> actorSystem,
          final ActorRef<BackEnd.Request> backEnd) {
       return entity(Jackson.unmarshaller(OBJECT_MAPPER, ApiModels.ApiCrLinkBySourceIdRequest.class),
-                    obj -> onComplete(Ask.postCrLinkBySourceId(actorSystem, backEnd, obj), response -> {
-                       if (!response.isSuccess()) {
-                          final var e = response.failed().get();
-                          LOGGER.error(e.getLocalizedMessage(), e);
-                          return mapError(new MpiServiceError.InternalError(e.getLocalizedMessage()));
+                    obj -> onComplete(Ask.postCrLinkBySourceId(actorSystem, backEnd, obj), result -> {
+                       if (!result.isSuccess()) {
+                          return handleError(result.failed().get());
                        }
-                       final var rsp = response.get();
-                       try {
-                          if (rsp.linkInfo().isLeft()) {
-                             LOGGER.warn("{}", OBJECT_MAPPER.writeValueAsString(rsp.linkInfo().getLeft()));
-                          } else {
-                             LOGGER.debug("{}", OBJECT_MAPPER.writeValueAsString(rsp.linkInfo().get()));
-                          }
-                       } catch (JsonProcessingException e) {
-                          LOGGER.error(e.getLocalizedMessage(), e);
-                       }
-                       if (rsp.linkInfo().isLeft()) {
-                          final var error = rsp.linkInfo().getLeft();
-                          try {
-                             LOGGER.warn("Error: {}", OBJECT_MAPPER.writeValueAsString(error));
-                          } catch (JsonProcessingException e) {
-                             LOGGER.error(e.getLocalizedMessage(), e);
-                          }
-                          return mapError(error);
-                       } else {
-                          final var result = rsp.linkInfo().get();
-                          LOGGER.debug("OK: {}", result);
-                          return complete(StatusCodes.OK,
-                                          new ApiModels.ApiCrLinkUpdateResponse(result),
-                                          Jackson.marshaller(OBJECT_MAPPER));
-                       }
+                       return result.get()
+                                    .linkInfo()
+                                    .mapLeft(MapError::mapError)
+                                    .fold(error -> error,
+                                          r -> complete(StatusCodes.OK,
+                                                        new ApiModels.ApiCrLinkUpdateResponse(r),
+                                                        JSON_MARSHALLER));
                     }));
    }
 
@@ -221,37 +109,76 @@ final class Routes {
          final ActorSystem<Void> actorSystem,
          final ActorRef<BackEnd.Request> backEnd) {
       return entity(Jackson.unmarshaller(OBJECT_MAPPER, ApiModels.ApiCrLinkBySourceIdUpdateRequest.class),
-                    obj -> onComplete(Ask.postCrLinkBySourceIdUpdate(actorSystem, backEnd, obj), response -> {
-                       if (!response.isSuccess()) {
-                          final var e = response.failed().get();
-                          LOGGER.error(e.getLocalizedMessage(), e);
-                          return mapError(new MpiServiceError.InternalError(e.getLocalizedMessage()));
+                    obj -> onComplete(Ask.postCrLinkBySourceIdUpdate(actorSystem, backEnd, obj), result -> {
+                       if (!result.isSuccess()) {
+                          return handleError(result.failed().get());
                        }
-                       final var rsp = response.get();
-                       try {
-                          if (rsp.linkInfo().isLeft()) {
-                             LOGGER.warn("{}", OBJECT_MAPPER.writeValueAsString(rsp.linkInfo().getLeft()));
-                          } else {
-                             LOGGER.debug("{}", OBJECT_MAPPER.writeValueAsString(rsp.linkInfo().get()));
-                          }
-                       } catch (JsonProcessingException e) {
-                          LOGGER.error(e.getLocalizedMessage(), e);
+                       return result.get()
+                                    .linkInfo()
+                                    .mapLeft(MapError::mapError)
+                                    .fold(error -> error,
+                                          r -> complete(StatusCodes.OK,
+                                                        new ApiModels.ApiCrLinkUpdateResponse(r),
+                                                        JSON_MARSHALLER));
+                    }));
+   }
+
+   static Route proxyGetCrCandidates(
+         final ActorSystem<Void> actorSystem,
+         final ActorRef<BackEnd.Request> backEnd) {
+      return entity(Jackson.unmarshaller(OBJECT_MAPPER, ApiModels.ApiCrCandidatesRequest.class),
+                    obj -> onComplete(Ask.getCrCandidates(actorSystem, backEnd, obj), result -> {
+                       if (!result.isSuccess()) {
+                          return handleError(result.failed().get());
                        }
-                       if (rsp.linkInfo().isLeft()) {
-                          final var error = rsp.linkInfo().getLeft();
-                          try {
-                             LOGGER.warn("Error: {}", OBJECT_MAPPER.writeValueAsString(error));
-                          } catch (JsonProcessingException e) {
-                             LOGGER.error(e.getLocalizedMessage(), e);
-                          }
-                          return mapError(error);
-                       } else {
-                          final var result = rsp.linkInfo().get();
-                          LOGGER.debug("OK: {}", result);
-                          return complete(StatusCodes.OK,
-                                          new ApiModels.ApiCrLinkUpdateResponse(result),
-                                          Jackson.marshaller(OBJECT_MAPPER));
+                       return result.get()
+                                    .goldenRecords()
+                                    .mapLeft(MapError::mapError)
+                                    .fold(error -> error,
+                                          r -> complete(StatusCodes.OK,
+                                                        new ApiModels.ApiCrCandidatesResponse(r.stream()
+                                                                                               .map(ApiModels.ApiGoldenRecord::fromGoldenRecord)
+                                                                                               .toList()),
+                                                        JSON_MARSHALLER));
+                    }));
+   }
+
+   static Route proxyGetCrFind(
+         final ActorSystem<Void> actorSystem,
+         final ActorRef<BackEnd.Request> backEnd) {
+      return entity(Jackson.unmarshaller(OBJECT_MAPPER, ApiModels.ApiCrFindRequest.class),
+                    obj -> onComplete(Ask.getCrFind(actorSystem, backEnd, obj), result -> {
+                       if (!result.isSuccess()) {
+                          return handleError(result.failed().get());
                        }
+                       return result.get()
+                                    .goldenRecords()
+                                    .mapLeft(MapError::mapError)
+                                    .fold(error -> error,
+                                          r -> complete(StatusCodes.OK,
+                                                        new ApiModels.ApiCrCandidatesResponse(
+                                                              r.stream()
+                                                               .map(ApiModels.ApiGoldenRecord::fromGoldenRecord)
+                                                               .toList()),
+                                                        JSON_MARSHALLER));
+                    }));
+   }
+
+   static Route proxyPostCrRegister(
+         final ActorSystem<Void> actorSystem,
+         final ActorRef<BackEnd.Request> backEnd) {
+      return entity(Jackson.unmarshaller(OBJECT_MAPPER, ApiModels.ApiCrRegisterRequest.class),
+                    obj -> onComplete(Ask.postCrRegister(actorSystem, backEnd, obj), result -> {
+                       if (!result.isSuccess()) {
+                          return handleError(result.failed().get());
+                       }
+                       return result.get()
+                                    .linkInfo()
+                                    .mapLeft(MapError::mapError)
+                                    .fold(error -> error,
+                                          r -> complete(StatusCodes.OK,
+                                                        new ApiModels.ApiCrRegisterResponse(r),
+                                                        JSON_MARSHALLER));
                     }));
    }
 
@@ -259,49 +186,40 @@ final class Routes {
          final ActorSystem<Void> actorSystem,
          final ActorRef<BackEnd.Request> backEnd) {
       return entity(Jackson.unmarshaller(OBJECT_MAPPER, ApiModels.LinkInteractionSyncBody.class),
-                    obj -> {
-                       try {
-                          final var json = OBJECT_MAPPER.writeValueAsString(obj);
-                          LOGGER.debug("JSON: {}", json);
-                       } catch (JsonProcessingException e) {
-                          LOGGER.error(e.getLocalizedMessage(), e);
+                    obj -> onComplete(Ask.postLinkInteraction(actorSystem, backEnd, obj), result -> {
+                       if (!result.isSuccess()) {
+                          return handleError(result.failed().get());
                        }
-                       return onComplete(Ask.postLinkInteraction(actorSystem, backEnd, obj),
-                                         response -> {
-                                            if (!response.isSuccess()) {
-                                               final var e = response.failed().get();
-                                               LOGGER.error(e.getLocalizedMessage(), e);
-                                               return mapError(new MpiServiceError.InternalError(e.getLocalizedMessage()));
-                                            }
-                                            final var eventLinkPatientSyncRsp = response.get();
-                                            return complete(StatusCodes.OK,
-                                                            new ApiModels.ApiExtendedLinkInfo(eventLinkPatientSyncRsp.stan(),
-                                                                                              eventLinkPatientSyncRsp.linkInfo(),
-                                                                                              eventLinkPatientSyncRsp.externalLinkCandidateList()),
-                                                            Jackson.marshaller());
-                                         });
-                    });
+                       return result.get()
+                                    .data()
+                                    .mapLeft(MapError::mapError)
+                                    .fold(error -> error,
+                                          r -> complete(StatusCodes.OK,
+                                                        new ApiModels.ApiExtendedLinkInfo(r.stan(),
+                                                                                          r.linkInfo(),
+                                                                                          r.externalLinkCandidateList()),
+                                                        JSON_MARSHALLER));
+                    }));
    }
 
    static Route proxyPostCrUpdateField(
          final ActorSystem<Void> actorSystem,
          final ActorRef<BackEnd.Request> backEnd) {
       return entity(Jackson.unmarshaller(ApiModels.ApiCrUpdateFieldsRequest.class),
-                    obj -> onComplete(Ask.postCrUpdateField(actorSystem, backEnd, obj), response -> {
-                       if (!response.isSuccess()) {
-                          final var e = response.failed().get();
-                          LOGGER.error(e.getLocalizedMessage(), e);
-                          return mapError(new MpiServiceError.InternalError(e.getLocalizedMessage()));
+                    obj -> onComplete(Ask.postCrUpdateField(actorSystem, backEnd, obj), result -> {
+                       if (!result.isSuccess()) {
+                          return handleError(result.failed().get());
                        }
-                       final var rsp = response.get();
-                       if (rsp.response().isLeft()) {
-                          return mapError(rsp.response().getLeft());
-                       } else {
-                          final var r = rsp.response().get();
-                          return complete(StatusCodes.OK,
-                                          new ApiModels.ApiCrUpdateFieldsResponse(r.goldenId(), r.updated(), r.failed()),
-                                          Jackson.marshaller());
-                       }
+                       return result.get()
+                                    .response()
+                                    .mapLeft(MapError::mapError)
+                                    .fold(error -> error,
+                                          updateFieldResponse -> complete(StatusCodes.OK,
+                                                                          new ApiModels.ApiCrUpdateFieldsResponse(
+                                                                                updateFieldResponse.goldenId(),
+                                                                                updateFieldResponse.updated(),
+                                                                                updateFieldResponse.failed()),
+                                                                          JSON_MARSHALLER));
                     }));
    }
 
@@ -309,20 +227,17 @@ final class Routes {
          final ActorSystem<Void> actorSystem,
          final ActorRef<BackEnd.Request> backEnd) {
       return entity(Jackson.unmarshaller(ApiModels.ApiCivilRecordRequest.class),
-                    obj -> onComplete(Ask.postCivilRecord(actorSystem, backEnd, obj), response -> {
-                       if (!response.isSuccess()) {
-                          final var e = response.failed().get();
-                          LOGGER.error(e.getLocalizedMessage(), e);
-                          return mapError(new MpiServiceError.InternalError(e.getLocalizedMessage()));
+                    obj -> onComplete(Ask.postCivilRecord(actorSystem, backEnd, obj), result -> {
+                       if (!result.isSuccess()) {
+                          return handleError(result.failed().get());
                        }
-                       final var rsp = response.get();
-                       if (rsp.response().isLeft()) {
-                          return mapError(rsp.response().getLeft());
-                       } else {
-                          return complete(StatusCodes.OK,
-                                          rsp.response().get(),
-                                          Jackson.marshaller());
-                       }
+                       return result.get()
+                                    .response()
+                                    .mapLeft(MapError::mapError)
+                                    .fold(error -> error,
+                                          apiCivilRecordResponse -> complete(StatusCodes.OK,
+                                                                             apiCivilRecordResponse,
+                                                                             JSON_MARSHALLER));
                     }));
    }
 
@@ -352,9 +267,7 @@ final class Routes {
                                                        path(GlobalConstants.SEGMENT_PROXY_POST_CR_UPDATE_FIELDS,
                                                             () -> proxyPostCrUpdateField(actorSystem, backEnd)),
                                                        path(GlobalConstants.SEGMENT_PROXY_POST_CIVIL_RECORD,
-                                                            () -> proxyPostCivilRecord(actorSystem, backEnd))
-                                                      ))
-                                    ));
+                                                            () -> proxyPostCivilRecord(actorSystem, backEnd))))));
    }
 
 }

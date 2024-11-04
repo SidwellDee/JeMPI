@@ -30,9 +30,7 @@ final class Ask {
                  actorSystem.scheduler());
       return stage.thenApply(response -> {
          if (response.goldenRecords().isLeft()) {
-            LOGGER.debug("ERROR");
-         } else {
-            LOGGER.debug("{}", response.goldenRecords().get());
+            LOGGER.debug("ERROR {}", response.goldenRecords().getLeft());
          }
          return response;
       });
@@ -49,7 +47,7 @@ final class Ask {
                  actorSystem.scheduler());
       return stage.thenApply(response -> {
          if (response.goldenRecords().isLeft()) {
-            LOGGER.debug("ERROR");
+            LOGGER.debug("ERROR {}", response.goldenRecords().getLeft());
          } else {
             LOGGER.debug("{}", response.goldenRecords().get());
          }

@@ -17,7 +17,7 @@ public interface LibMPIClientInterface {
     * *****************************************************************************
     * *
     */
-   void connect();
+   Option<MpiGeneralError> connect();
 
    Option<MpiGeneralError> dropAll();
 
@@ -33,74 +33,74 @@ public interface LibMPIClientInterface {
     * *
     */
 
-   long countInteractions();
+   Either<MpiGeneralError, Long> countInteractions();
 
-   long countGoldenRecords();
+   Either<MpiGeneralError, Long> countGoldenRecords();
 
-   List<SourceId> findSourceId(
+   Either<MpiGeneralError, List<SourceId>> findSourceId(
          String facility,
          String client);
 
-   List<ExpandedSourceId> findExpandedSourceIdList(
+   Either<MpiGeneralError, List<ExpandedSourceId>> findExpandedSourceIdList(
          String facility,
          String client);
 
-   Interaction findInteraction(String interactionID);
+   Either<MpiGeneralError, Interaction> findInteraction(String interactionID);
 
-   List<Interaction> findInteractions(List<String> interactionIDs);
+   Either<MpiGeneralError, List<Interaction>> findInteractions(List<String> interactionIDs);
 
-   List<ExpandedInteraction> findExpandedInteractions(List<String> interactionIDs);
+   Either<MpiGeneralError, List<ExpandedInteraction>> findExpandedInteractions(List<String> interactionIDs);
 
    Either<MpiGeneralError, PaginatedResultSet<GoldenRecord>> findGoldenRecords(List<String> goldenIds);
 
-   PaginatedResultSet<ExpandedGoldenRecord> findExpandedGoldenRecords(List<String> goldenIds);
+   Either<MpiGeneralError, PaginatedResultSet<ExpandedGoldenRecord>> findExpandedGoldenRecords(List<String> goldenIds);
 
-   List<String> findGoldenIds();
+   Either<MpiGeneralError, List<String>> findGoldenIds();
 
-   List<String> fetchGoldenIds(
+   Either<MpiGeneralError, List<String>> fetchGoldenIds(
          long offset,
          long length);
 
-   List<GoldenRecord> findLinkCandidates(DemographicData demographicData);
+   Either<MpiGeneralError, List<GoldenRecord>> findLinkCandidates(DemographicData demographicData);
 
-   String restoreGoldenRecord(RestoreGoldenRecords goldenRecord);
+   Either<MpiGeneralError, String> restoreGoldenRecord(RestoreGoldenRecords goldenRecord);
 
-   List<GoldenRecord> findMatchCandidates(DemographicData demographicData);
+   Either<MpiGeneralError, List<GoldenRecord>> findMatchCandidates(DemographicData demographicData);
 
-   PaginatedResultSet<ExpandedGoldenRecord> simpleSearchGoldenRecords(
+   Either<MpiGeneralError, PaginatedResultSet<ExpandedGoldenRecord>> simpleSearchGoldenRecords(
          List<ApiModels.ApiSearchParameter> params,
          Integer offset,
          Integer limit,
          String sortBy,
          Boolean sortAsc);
 
-   PaginatedResultSet<ExpandedGoldenRecord> customSearchGoldenRecords(
+   Either<MpiGeneralError, PaginatedResultSet<ExpandedGoldenRecord>> customSearchGoldenRecords(
          List<ApiModels.ApiSimpleSearchRequestPayload> params,
          Integer offset,
          Integer limit,
          String sortBy,
          Boolean sortAsc);
 
-   PaginatedResultSet<Interaction> simpleSearchInteractions(
+   Either<MpiGeneralError, PaginatedResultSet<Interaction>> simpleSearchInteractions(
          List<ApiModels.ApiSearchParameter> params,
          Integer offset,
          Integer limit,
          String sortBy,
          Boolean sortAsc);
 
-   PaginatedResultSet<Interaction> customSearchInteractions(
+   Either<MpiGeneralError, PaginatedResultSet<Interaction>> customSearchInteractions(
          List<ApiModels.ApiSimpleSearchRequestPayload> params,
          Integer offset,
          Integer limit,
          String sortBy,
          Boolean sortAsc);
 
-   LibMPIPaginatedResultSet<String> filterGids(
+   Either<MpiGeneralError, LibMPIPaginatedResultSet<String>> filterGids(
          List<ApiModels.ApiSearchParameter> params,
          LocalDateTime createdAt,
          PaginationOptions paginationOptions);
 
-   PaginatedGIDsWithInteractionCount filterGidsWithInteractionCount(
+   Either<MpiGeneralError, PaginatedGIDsWithInteractionCount> filterGidsWithInteractionCount(
          List<ApiModels.ApiSearchParameter> params,
          LocalDateTime createdAt,
          PaginationOptions paginationOptions);
@@ -115,31 +115,31 @@ public interface LibMPIClientInterface {
     * *
     */
 
-   Either<MpiGeneralError,  ApiModels.ApiCivilRecordResponse> insertCivilRecord(
+   Either<MpiGeneralError, ApiModels.ApiCivilRecordResponse> insertCivilRecord(
          String auxId,
          DemographicData demographicData);
 
-   boolean setScore(
+   Option<MpiGeneralError> setScore(
          String interactionUID,
          String goldenRecordUid,
          Float score);
 
-   boolean updateGoldenRecordField(
+   Option<MpiGeneralError> updateGoldenRecordField(
          String goldenId,
          String fieldName,
          String value);
 
-   boolean updateGoldenRecordField(
+   Option<MpiGeneralError> updateGoldenRecordField(
          String goldenId,
          String fieldName,
          Boolean value);
 
-   boolean updateGoldenRecordField(
+   Option<MpiGeneralError> updateGoldenRecordField(
          String goldenId,
          String fieldName,
          Double value);
 
-   boolean updateGoldenRecordField(
+   Option<MpiGeneralError> updateGoldenRecordField(
          String goldenId,
          String fieldName,
          Long value);
@@ -155,11 +155,11 @@ public interface LibMPIClientInterface {
          String interactionId,
          Float score);
 
-   LinkInfo createInteractionAndLinkToExistingGoldenRecord(
+   Either<MpiGeneralError, LinkInfo> createInteractionAndLinkToExistingGoldenRecord(
          Interaction interaction,
          GoldenIdScore goldenIdScore);
 
-   LinkInfo createInteractionAndLinkToClonedGoldenRecord(
+   Either<MpiGeneralError, LinkInfo> createInteractionAndLinkToClonedGoldenRecord(
          Interaction interaction,
          Float score);
 

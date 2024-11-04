@@ -1,9 +1,11 @@
 package org.jembi.jempi.libmpi.postgresql;
 
 import io.vavr.control.Either;
+import io.vavr.control.Option;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jembi.jempi.libmpi.LibMPIClientInterface;
+import org.jembi.jempi.libmpi.MpiException;
 import org.jembi.jempi.libmpi.MpiGeneralError;
 import org.jembi.jempi.libmpi.MpiServiceError;
 import org.jembi.jempi.shared.config.Config;
@@ -17,7 +19,6 @@ import java.util.UUID;
 final class PsqlMutations {
 
    private static final Logger LOGGER = LogManager.getLogger(PsqlMutations.class);
-   private static final PsqlClient PSQL_CLIENT = new PsqlClient();
    private static final GoldenRecordDAO GOLDEN_RECORD_DAO = new GoldenRecordDAO();
    private static final SourceIdDAO SOURCE_ID_DAO = new SourceIdDAO();
    private static final EncounterDAO ENCOUNTER_DAO = new EncounterDAO();
@@ -25,7 +26,9 @@ final class PsqlMutations {
    private PsqlMutations() {
    }
 
-   private static UUID insertGoldenRecord(final Interaction interaction) {
+   private static UUID insertGoldenRecord(
+         final PsqlClient psqlClient,
+         final Interaction interaction) throws SQLException, MpiException {
       final var sqlGoldenRecord = new GoldenRecordDAO.SqlGoldenRecord(
             null,
             interaction.demographicData().fields.get(0).value(),
@@ -43,42 +46,28 @@ final class PsqlMutations {
             LocalDateTime.now(),
             true,
             interaction.auxInteractionData().auxUserFields().getFirst().value());
-      UUID uuid = null;
-      try {
-         PSQL_CLIENT.connect();
-         uuid = GOLDEN_RECORD_DAO.insert(PSQL_CLIENT, sqlGoldenRecord);
-      } catch (SQLException e) {
-         LOGGER.error(e.getLocalizedMessage(), e);
-//      } finally {
-      }
-      return uuid;
+      psqlClient.connect();
+      return GOLDEN_RECORD_DAO.insert(psqlClient, sqlGoldenRecord);
    }
 
    private static UUID insertSourceId(
+         final PsqlClient psqlClient,
          final SourceId sourceId,
-         final UUID goldenId) {
+         final UUID goldenId) throws SQLException, MpiException {
       final var sqlSourceId = new SourceIdDAO.SqlSourceId(null,
                                                           sourceId.facility(),
                                                           sourceId.patient(),
                                                           goldenId);
-      UUID uid = null;
-
-      PSQL_CLIENT.connect();
-      try {
-         PSQL_CLIENT.connect();
-         uid = SOURCE_ID_DAO.insert(PSQL_CLIENT, sqlSourceId);
-      } catch (SQLException e) {
-         LOGGER.error(e.getLocalizedMessage(), e);
-//      } finally {
-      }
-      return uid;
+      psqlClient.connect();
+      return SOURCE_ID_DAO.insert(psqlClient, sqlSourceId);
    }
 
    private static UUID insertEncounter(
+         final PsqlClient psqlClient,
          final Interaction interaction,
          final UUID goldenId,
          final float score,
-         final UUID sourceId) {
+         final UUID sourceId) throws SQLException, MpiException {
       final var sqlEncounter = new EncounterDAO.SqlEncounter(
             null,
             interaction.demographicData().fields.get(0).value(),
@@ -98,171 +87,154 @@ final class PsqlMutations {
             sourceId,
             interaction.auxInteractionData().auxDateCreated(),
             interaction.auxInteractionData().auxUserFields().getFirst().value());
-      UUID uuid = null;
-      try {
-         PSQL_CLIENT.connect();
-         uuid = ENCOUNTER_DAO.insert(PSQL_CLIENT, sqlEncounter);
-      } catch (SQLException e) {
-         LOGGER.error(e.getLocalizedMessage(), e);
-//      } finally {
-      }
-      return uuid;
+      psqlClient.connect();
+      return ENCOUNTER_DAO.insert(psqlClient, sqlEncounter);
    }
 
-   static boolean setScore(
+   static Option<MpiGeneralError> setScore(
+         final PsqlClient psqlClient,
          final String interactionUID,
          final String goldenRecordUid,
-         final Float score) {
-      boolean rs = false;
-      try {
-         PSQL_CLIENT.connect();
-         rs = ENCOUNTER_DAO.updateScore(PSQL_CLIENT,
-                                        UUID.fromString(interactionUID),
-                                        UUID.fromString(goldenRecordUid),
-                                        score);
-         if (!rs) {
-            LOGGER.error("Set score failed: {} --> {} {}", interactionUID, goldenRecordUid, score);
-         }
-      } catch (SQLException e) {
-         LOGGER.error(e.getLocalizedMessage(), e);
-//      } finally {
+         final Float score) throws SQLException, MpiException {
+      psqlClient.connect();
+      if (ENCOUNTER_DAO.updateScore(psqlClient,
+                                    UUID.fromString(interactionUID),
+                                    UUID.fromString(goldenRecordUid),
+                                    score)) {
+         return Option.none();
       }
-      return rs;
+      LOGGER.error("Set score failed: {} --> {} {}", interactionUID, goldenRecordUid, score);
+      return Option.of(new MpiServiceError.InternalError("Cound not set score"));
    }
 
-   static boolean updateField(
+   static void updateField(
+         final PsqlClient psqlClient,
          final String goldenRecordUid,
          final String ccField,
-         final String value) {
-      boolean rs = false;
-      try {
-         PSQL_CLIENT.connect();
-         rs = GOLDEN_RECORD_DAO.setFieldStringValueById(PSQL_CLIENT,
-                                                        UUID.fromString(goldenRecordUid),
-                                                        ccField,
-                                                        value);
-         if (!rs) {
-            LOGGER.error("Update Field failed: {} --> {} {}", goldenRecordUid, ccField, value);
-         }
-      } catch (SQLException e) {
-         LOGGER.error(e.getLocalizedMessage(), e);
-      }
-      return rs;
+         final String value) throws SQLException, MpiException {
+      psqlClient.connect();
+      GOLDEN_RECORD_DAO.setFieldStringValueById(psqlClient,
+                                                UUID.fromString(goldenRecordUid),
+                                                ccField,
+                                                value);
    }
 
    static LinkInfo createInteractionAndLinkToExistingGoldenRecord(
+         final PsqlClient psqlClient,
          final Interaction interaction,
-         final LibMPIClientInterface.GoldenIdScore goldenIdScore) {
+         final LibMPIClientInterface.GoldenIdScore goldenIdScore) throws SQLException, MpiException {
 
-      // search for source ID and only if not exist create a new source ID
-      final var sourceId = insertSourceId(interaction.sourceId(),
-                                          UUID.fromString(goldenIdScore.goldenId()));
-      final var encounterId = insertEncounter(
-            interaction,
-            UUID.fromString(goldenIdScore.goldenId()),
-            goldenIdScore.score(),
-            sourceId);
+      final var sourceId = SOURCE_ID_DAO.getByFacilityCodePatientId(psqlClient,
+                                                              interaction.sourceId().facility(),
+                                                              interaction.sourceId().patient());
+      final UUID sourceUuid;
+      if (sourceId != null) {
+         if (sourceId.goldenRecordUid().compareTo(UUID.fromString(goldenIdScore.goldenId())) != 0) {
+            LOGGER.error("REFERENTIAL INTEGRITY: {} {} {} {}",  sourceId.goldenRecordUid().toString(),
+                         goldenIdScore.goldenId(),
+                         interaction.sourceId().facility(),
+                         interaction.sourceId().patient());
+         }
+         sourceUuid = sourceId.uid();
+      } else {
+         sourceUuid = insertSourceId(psqlClient, interaction.sourceId(),
+                                     UUID.fromString(goldenIdScore.goldenId()));
+      }
+      final var encounterId = insertEncounter(psqlClient, interaction,
+                                              UUID.fromString(goldenIdScore.goldenId()),
+                                              goldenIdScore.score(),
+                                              sourceUuid);
       return new LinkInfo(goldenIdScore.goldenId(),
                           encounterId.toString(),
-                          sourceId.toString(),
+                          sourceUuid.toString(),
                           goldenIdScore.score());
    }
 
-   static LinkInfo createInteractionAndLinkToClonedGoldenRecord(
+   static Either<MpiGeneralError, LinkInfo> createInteractionAndLinkToClonedGoldenRecord(
+         final PsqlClient psqlClient,
          final Interaction interaction,
          final Float score) {
-      LinkInfo linkInfo = null;
-
-      final var goldenId = insertGoldenRecord(interaction);
-      if (goldenId != null) {
-         final var sourceId = insertSourceId(interaction.sourceId(), goldenId);
-         if (sourceId != null) {
-            final var encounterId = insertEncounter(interaction, goldenId, score, sourceId);
-            if (encounterId != null) {
-               linkInfo = new LinkInfo(goldenId.toString(),
-                                       encounterId.toString(),
-                                       sourceId.toString(),
-                                       score);
-            }
-         }
-      }
-      return linkInfo;
-   }
-
-   static Either<MpiGeneralError, LinkInfo> linkToNewGoldenRecord(
-         final String currentGoldenId,
-         final String interactionId,
-         final Float score) {
-      LOGGER.debug("linkToNewGoldenRecord");
       try {
-         final var sqlEncounter = ENCOUNTER_DAO.getById(PSQL_CLIENT, UUID.fromString(interactionId));
-         final var sqlSourceId = SOURCE_ID_DAO.getById(PSQL_CLIENT, sqlEncounter.sourceIdUid());
-         final var interaction = ENCOUNTER_DAO.mapToInteraction(sqlEncounter, sqlSourceId);
-         final var newGoldenId = insertGoldenRecord(interaction);
-         ENCOUNTER_DAO.setFieldUuidValueById(PSQL_CLIENT,
-                                             UUID.fromString(interactionId),
-                                             "goldenRecordUid",
-                                             newGoldenId);
-         SOURCE_ID_DAO.setFieldUuidValueById(PSQL_CLIENT,
-                                             sqlEncounter.sourceIdUid(),
-                                             "goldenRecordUid",
-                                             newGoldenId);
-         setScore(interactionId, newGoldenId.toString(), score);
-         final var count = ENCOUNTER_DAO.countEncountersForGoldenId(PSQL_CLIENT, UUID.fromString(currentGoldenId));
-         if (count == 0) {
-            GOLDEN_RECORD_DAO.delete(PSQL_CLIENT, UUID.fromString(currentGoldenId));
-         }
-         return Either.right(new LinkInfo(newGoldenId.toString(), interactionId, sqlSourceId.uid().toString(), score));
-      } catch (SQLException e) {
+         final var goldenId = insertGoldenRecord(psqlClient, interaction);
+         final var sourceId = insertSourceId(psqlClient, interaction.sourceId(), goldenId);
+         final var encounterId = insertEncounter(psqlClient, interaction, goldenId, score, sourceId);
+         final var linkInfo = new LinkInfo(goldenId.toString(),
+                                           encounterId.toString(),
+                                           sourceId.toString(),
+                                           score);
+         return Either.right(linkInfo);
+      } catch (SQLException | MpiException e) {
          LOGGER.error(e.getLocalizedMessage(), e);
          return Either.left(new MpiServiceError.InternalError(e.getLocalizedMessage()));
       }
    }
 
-   static Either<MpiGeneralError, LinkInfo> updateLink(
+   static Either<MpiGeneralError, LinkInfo> linkToNewGoldenRecord(
+         final PsqlClient psqlClient,
+         final String currentGoldenId,
+         final String interactionId,
+         final Float score) {
+      LOGGER.debug("linkToNewGoldenRecord");
+      try {
+         final var sqlEncounter = ENCOUNTER_DAO.getById(psqlClient, UUID.fromString(interactionId));
+         final var sqlSourceId = SOURCE_ID_DAO.getById(psqlClient, sqlEncounter.sourceIdUid());
+         final var interaction = ENCOUNTER_DAO.mapToInteraction(sqlEncounter, sqlSourceId);
+         final var newGoldenId = insertGoldenRecord(psqlClient, interaction);
+         ENCOUNTER_DAO.setFieldUuidValueById(psqlClient,
+                                             UUID.fromString(interactionId),
+                                             "goldenRecordUid",
+                                             newGoldenId);
+         SOURCE_ID_DAO.setFieldUuidValueById(psqlClient,
+                                             sqlEncounter.sourceIdUid(),
+                                             "goldenRecordUid",
+                                             newGoldenId);
+         setScore(psqlClient, interactionId, newGoldenId.toString(), score);
+         final var count = ENCOUNTER_DAO.countEncountersForGoldenId(psqlClient, UUID.fromString(currentGoldenId));
+         if (count == 0) {
+            GOLDEN_RECORD_DAO.delete(psqlClient, UUID.fromString(currentGoldenId));
+         }
+         return Either.right(new LinkInfo(newGoldenId.toString(), interactionId, sqlSourceId.uid().toString(), score));
+      } catch (SQLException | MpiException e) {
+         LOGGER.error(e.getLocalizedMessage(), e);
+         return Either.left(new MpiServiceError.InternalError(e.getLocalizedMessage()));
+      }
+   }
+
+   static LinkInfo updateLink(
+         final PsqlClient psqlClient,
          final String goldenId,
          final String newGoldenId,
          final String interactionId,
-         final Float score) {
+         final Float score) throws SQLException, MpiException {
       LOGGER.debug("updateLink {}", goldenId);
       LOGGER.debug("updateLink {}", newGoldenId);
       LOGGER.debug("updateLink {}", interactionId);
       LOGGER.debug("updateLink {}", score);
       UUID sourceId;
-      try {
-         PSQL_CLIENT.connect();
-         sourceId = ENCOUNTER_DAO.getFieldUuidValueById(PSQL_CLIENT, UUID.fromString(interactionId), "sourceIdUid");
-      } catch (SQLException e) {
-         LOGGER.error(e.getLocalizedMessage(), e);
-         return Either.left(new MpiServiceError.GoldenIdInteractionConflictError("no sourceId", goldenId, interactionId));
-      }
+      psqlClient.connect();
+      sourceId = ENCOUNTER_DAO.getFieldUuidValueById(psqlClient, UUID.fromString(interactionId), "sourceIdUid");
       if (!newGoldenId.equals(goldenId)) {
-         try {
-            ENCOUNTER_DAO.setFieldUuidValueById(PSQL_CLIENT,
-                                                UUID.fromString(interactionId),
-                                                "goldenRecordUid",
-                                                UUID.fromString(newGoldenId));
-            SOURCE_ID_DAO.setFieldUuidValueById(PSQL_CLIENT,
-                                                sourceId,
-                                                "goldenRecordUid",
-                                                UUID.fromString(newGoldenId));
-            final var count = ENCOUNTER_DAO.countEncountersForGoldenId(PSQL_CLIENT, UUID.fromString(goldenId));
-            if (count == 0) {
-               LOGGER.info("Delete orphaned goldenRecord: {}", goldenId);
-               GOLDEN_RECORD_DAO.delete(PSQL_CLIENT, UUID.fromString(goldenId));
-            }
-         } catch (SQLException e) {
-            LOGGER.error(e.getLocalizedMessage(), e);
-            return Either.left(new MpiServiceError.InternalError(e.getLocalizedMessage()));
+         ENCOUNTER_DAO.setFieldUuidValueById(psqlClient,
+                                             UUID.fromString(interactionId),
+                                             "goldenRecordUid",
+                                             UUID.fromString(newGoldenId));
+         SOURCE_ID_DAO.setFieldUuidValueById(psqlClient,
+                                             sourceId,
+                                             "goldenRecordUid",
+                                             UUID.fromString(newGoldenId));
+         final var count = ENCOUNTER_DAO.countEncountersForGoldenId(psqlClient, UUID.fromString(goldenId));
+         if (count == 0) {
+            LOGGER.info("Delete orphaned goldenRecord: {}", goldenId);
+            GOLDEN_RECORD_DAO.delete(psqlClient, UUID.fromString(goldenId));
          }
       }
-      return Either.right(new LinkInfo(newGoldenId, interactionId, sourceId.toString(), score));
+      return new LinkInfo(newGoldenId, interactionId, sourceId.toString(), score);
    }
 
-   static Either<MpiGeneralError, ApiModels.ApiCivilRecordResponse> insertCivilRecord(
+   static ApiModels.ApiCivilRecordResponse insertCivilRecord(
+         final PsqlClient psqlClient,
          final String auxId,
-         final DemographicData demographicData) {
-      LOGGER.debug("civil record: {}", auxId);
+         final DemographicData demographicData) throws MpiException, SQLException {
       try {
          final var sqlGoldenRecord = new GoldenRecordDAO.SqlGoldenRecord(
                null,
@@ -281,15 +253,15 @@ final class PsqlMutations {
                LocalDateTime.now(),
                true,
                auxId);
-         PSQL_CLIENT.connect();
-         PSQL_CLIENT.setAutoCommit(false);
-         final var gUuid = GOLDEN_RECORD_DAO.insert(PSQL_CLIENT, sqlGoldenRecord);
+         psqlClient.connect();
+         psqlClient.setAutoCommit(false);
+         final var gUuid = GOLDEN_RECORD_DAO.insert(psqlClient, sqlGoldenRecord);
          final var sqlSourceId = new SourceIdDAO.SqlSourceId(
                null,
                "CIVIL",
                demographicData.fields.get(Config.FIELDS_CONFIG.findIndexOfDemographicField("pin")).value(),
                gUuid);
-         final var sUuid = SOURCE_ID_DAO.insert(PSQL_CLIENT, sqlSourceId);
+         final var sUuid = SOURCE_ID_DAO.insert(psqlClient, sqlSourceId);
          final var sqlEncounter = new EncounterDAO.SqlEncounter(
                null,
                demographicData.fields.get(0).value().toLowerCase(Locale.ROOT),
@@ -309,23 +281,23 @@ final class PsqlMutations {
                sUuid,
                LocalDateTime.now(),
                auxId);
-         final var eUuid = ENCOUNTER_DAO.insert(PSQL_CLIENT, sqlEncounter);
-         PSQL_CLIENT.commit();
-         PSQL_CLIENT.setAutoCommit(true);
-         return Either.right(new ApiModels.ApiCivilRecordResponse(gUuid.toString(),
-                                                                  sUuid.toString(),
-                                                                  eUuid.toString()));
+         final var eUuid = ENCOUNTER_DAO.insert(psqlClient, sqlEncounter);
+         psqlClient.commit();
+         psqlClient.setAutoCommit(true);
+         return new ApiModels.ApiCivilRecordResponse(gUuid.toString(),
+                                                     sUuid.toString(),
+                                                     eUuid.toString());
       } catch (SQLException e) {
          LOGGER.error(e.getLocalizedMessage(), e);
-         PSQL_CLIENT.rollback();
-         return Either.left(new MpiServiceError.GeneralError(e.getLocalizedMessage()));
+         psqlClient.rollback();
+         throw e;
       } finally {
-         PSQL_CLIENT.setAutoCommit(true);
+         psqlClient.setAutoCommit(true);
       }
    }
 
-   static void connect() {
-      PSQL_CLIENT.connect();
+   static void connect(final PsqlClient psqlClient) throws SQLException, MpiException {
+      psqlClient.connect();
    }
 
 }
