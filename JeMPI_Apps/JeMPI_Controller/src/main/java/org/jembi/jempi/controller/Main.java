@@ -101,6 +101,7 @@ public final class Main {
       LOGGER.info("POSTGRESQL_PASSWORD:         {}", AppConfig.POSTGRESQL_PASSWORD);
       LOGGER.info("POSTGRESQL_NOTIFICATIONS_DB: {}", AppConfig.POSTGRESQL_NOTIFICATIONS_DB);
       LOGGER.info("POSTGRESQL_AUDIT_DB:         {}", AppConfig.POSTGRESQL_AUDIT_DB);
+      LOGGER.info("POSTGRESQL_MPI_DB:           {}", AppConfig.POSTGRESQL_MPI_DB);
       LOGGER.info("CONTROLLER_HTTP_PORT:        {}", AppConfig.CONTROLLER_HTTP_PORT);
       LOGGER.info("LINKER_IP:                   {}", AppConfig.LINKER_IP);
       LOGGER.info("LINKER_HTTP_PORT:            {}", AppConfig.LINKER_HTTP_PORT);

@@ -18,17 +18,17 @@ curl --location 'http://localhost:50000/JeMPI/crLink' \
     },
     "demographicData": {
 	"pin": "pin-1234",
-        "firstName": "John",
-        "middleName": "bbb",
+  "firstName": "John",
+  "middleName": "bbb",
 	"surname": "Doe",
-	"sex": "maleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-        "dob": "20000202",
+	"sex": "male",
+  "dob": "20000202",
 	"birthTime": "00:00:00",
 	"cellPhone": "7661112",
 	"inkhundla": "Maseyisini",
 	"chiefdom": "Shiselweni II",
 	"nationality": "Kingdom of Eswatini",
-        "city": "Mbabane"
+  "city": "Mbabane"
     }
 }
 '
