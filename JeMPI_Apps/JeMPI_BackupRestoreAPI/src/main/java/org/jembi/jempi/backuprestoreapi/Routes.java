@@ -35,8 +35,8 @@ public final class Routes {
             final ActorRef<BackEnd.Event> backEnd) {
         return onComplete(Ask.getGidsAll(actorSystem, backEnd),
                 result -> {
-                    if (!result.isSuccess()) {
-                        final var e = result.failed().get();
+                    if (result.isFailure()) {
+                       final var e = result.failed().get();
                         LOGGER.error(e.getLocalizedMessage(), e);
                         return mapError(new MpiServiceError.InternalError(
                                 e.getLocalizedMessage()));

@@ -118,10 +118,10 @@ public final class AppConfig {
       Config build() {
          // Resolve substitutions.
          conf = conf.resolve();
-         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Logging properties. Make sure sensitive data such as passwords or secrets are not logged!");
-            LOGGER.debug(conf.root().render());
-         }
+//         if (LOGGER.isDebugEnabled()) {
+//            LOGGER.debug("Logging properties. Make sure sensitive data such as passwords or secrets are not logged!");
+//            LOGGER.debug(conf.root().render());
+//         }
          return conf;
       }
 

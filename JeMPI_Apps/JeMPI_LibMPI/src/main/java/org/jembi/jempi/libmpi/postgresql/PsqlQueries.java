@@ -1,6 +1,5 @@
 package org.jembi.jempi.libmpi.postgresql;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import io.vavr.control.Either;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -15,8 +14,6 @@ import java.sql.SQLException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
-
-import static org.jembi.jempi.shared.utils.AppUtils.OBJECT_MAPPER;
 
 final class PsqlQueries {
    private static final Logger LOGGER = LogManager.getLogger(PsqlQueries.class);
@@ -37,12 +34,9 @@ final class PsqlQueries {
          final PsqlClient psqlClient,
          final String uid) {
       GoldenRecord goldenRecord;
-      LOGGER.debug("getGoldenRecord for {}", uid);
-      LOGGER.debug("select * from golden_records where uid = '{}';", uid);
       try {
          psqlClient.connect();
          final var sqlGoldenRecord = GOLDEN_RECORD_DAO.getById(psqlClient, UUID.fromString(uid));
-         OBJECT_MAPPER.writeValueAsString(sqlGoldenRecord);
          final var demographicData = new DemographicData();
          for (int i = 0; i < Config.FIELDS_CONFIG.demographicFields.size(); i++) {
             demographicData.fields.add(
@@ -59,15 +53,12 @@ final class PsqlQueries {
                auxUserFields);
 
          final var sidList = SOURCE_ID_DAO.getSourceIdsForGoldenId(psqlClient, UUID.fromString(uid));
-         OBJECT_MAPPER.writeValueAsString(sidList);
          goldenRecord = new GoldenRecord(
                uid,
                sidList.stream().map(sid -> new SourceId(sid.uid().toString(), sid.facilityCode(), sid.patientId())).toList(),
                auxGoldenRecordData,
                demographicData);
-         final var json = OBJECT_MAPPER.writeValueAsString(goldenRecord);
-         LOGGER.debug(json);
-      } catch (SQLException | MpiException | JsonProcessingException e) {
+      } catch (SQLException | MpiException e) {
          LOGGER.error(e.getMessage(), e);
          return Either.left(new MpiServiceError.InternalError(e.getMessage()));
       }
@@ -166,30 +157,18 @@ final class PsqlQueries {
       final List<ExpandedInteraction> list = new LinkedList<>();
       for (String encounterId : encounterIdList) {
          try {
-            LOGGER.debug("{}", encounterId);
             final var sqlEncounter = ENCOUNTER_DAO.getById(psqlClient, UUID.fromString(encounterId));
-            final var json1 = OBJECT_MAPPER.writeValueAsString(sqlEncounter);
-            LOGGER.debug("{}", json1);
             final var sqlSourceId = SOURCE_ID_DAO.getById(psqlClient, sqlEncounter.sourceIdUid());
-            final var json2 = OBJECT_MAPPER.writeValueAsString(sqlSourceId);
-            LOGGER.debug("{}", json2);
             final var encounter = ENCOUNTER_DAO.mapToInteraction(sqlEncounter, sqlSourceId);
-            final var json3 = OBJECT_MAPPER.writeValueAsString(encounter);
-            LOGGER.debug("{}", json3);
             final var goldenRecord = getGoldenRecord(psqlClient, sqlEncounter.goldenRecordUid().toString());
             if (goldenRecord.isLeft()) {
-               LOGGER.error(goldenRecord.getLeft().toString());
                return Either.left(goldenRecord.getLeft());
             }
-            final var json4 = OBJECT_MAPPER.writeValueAsString(goldenRecord.get());
-            LOGGER.debug("{}", json4);
             final var expandedInteraction = new ExpandedInteraction(
                   encounter,
                   List.of(new GoldenRecordWithScore(goldenRecord.get(), sqlEncounter.score())));
-            final var json5 = OBJECT_MAPPER.writeValueAsString(expandedInteraction);
-            LOGGER.debug("{}", json5);
             list.add(expandedInteraction);
-         } catch (SQLException | JsonProcessingException e) {
+         } catch (SQLException e) {
             LOGGER.error(e.getLocalizedMessage(), e);
             return Either.left(new MpiServiceError.InternalError(e.getLocalizedMessage()));
          }

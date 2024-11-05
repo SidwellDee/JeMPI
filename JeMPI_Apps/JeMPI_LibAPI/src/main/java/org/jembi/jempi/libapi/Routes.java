@@ -43,23 +43,22 @@ public final class Routes {
          final Http http) {
 
       return entity(Jackson.unmarshaller(NotificationResolution.class),
-                    obj -> onComplete(
-                          Ask.postIidNewGidLink(actorSystem, backEnd, obj.currentGoldenId(), obj.interactionId()),
-                          result -> {
-                             if (!result.isSuccess()) {
-                                return handleError(result.failed().get());
-                             }
-                             return result.get()
-                                          .linkInfo()
-                                          .mapLeft(MapError::mapError)
-                                          .fold(error -> error,
-                                                linkInfo -> onComplete(
-                                                      processOnNotificationResolution(
-                                                            controllerIp, controllerPort, http,
-                                                            new NotificationResolutionProcessorData(obj, linkInfo)),
-                                                      r -> complete(StatusCodes.OK, linkInfo, JSON_MARSHALLER))
-                                               );
-                          })
+                    obj -> onComplete(Ask.postIidNewGidLink(actorSystem, backEnd, obj.currentGoldenId(), obj.interactionId()),
+                                      result -> {
+                                         if (!result.isSuccess()) {
+                                            return handleError(result.failed().get());
+                                         }
+                                         return result.get()
+                                                      .linkInfo()
+                                                      .mapLeft(MapError::mapError)
+                                                      .fold(error -> error,
+                                                            linkInfo -> onComplete(
+                                                                  processOnNotificationResolution(
+                                                                        controllerIp, controllerPort, http,
+                                                                        new NotificationResolutionProcessorData(obj, linkInfo)),
+                                                                  r -> complete(StatusCodes.OK, linkInfo, JSON_MARSHALLER))
+                                                           );
+                                      })
                    );
    }
 
@@ -71,30 +70,29 @@ public final class Routes {
          final Http http) {
 
       return entity(Jackson.unmarshaller(NotificationResolution.class),
-                    obj -> onComplete(
-                          Ask.postIidGidLink(actorSystem, backEnd, obj.currentGoldenId(),
-                                             obj.newGoldenId(),
-                                             obj.interactionId(), obj.score()),
-                          result -> {
-                             if (!result.isSuccess()) {
-                                return handleError(result.failed().get());
-                             }
-                             return result.get()
-                                          .linkInfo()
-                                          .mapLeft(MapError::mapError)
-                                          .fold(error -> error,
-                                                linkInfo -> onComplete(
-                                                      processOnNotificationResolution(
-                                                            controllerIp,
-                                                            controllerPort,
-                                                            http,
-                                                            new NotificationResolutionProcessorData(
-                                                                  obj,
-                                                                  linkInfo)),
-                                                      r -> complete(StatusCodes.OK,
-                                                                    linkInfo,
-                                                                    JSON_MARSHALLER)));
-                          }));
+                    obj -> onComplete(Ask.postIidGidLink(actorSystem, backEnd, obj.currentGoldenId(),
+                                                         obj.newGoldenId(),
+                                                         obj.interactionId(), obj.score()),
+                                      result -> {
+                                         if (result.isFailure()) {
+                                            return handleError(result.failed().get());
+                                         }
+                                         return result.get()
+                                                      .linkInfo()
+                                                      .mapLeft(MapError::mapError)
+                                                      .fold(error -> error,
+                                                            linkInfo -> onComplete(
+                                                                  processOnNotificationResolution(
+                                                                        controllerIp,
+                                                                        controllerPort,
+                                                                        http,
+                                                                        new NotificationResolutionProcessorData(
+                                                                              obj,
+                                                                              linkInfo)),
+                                                                  r -> complete(StatusCodes.OK,
+                                                                                linkInfo,
+                                                                                JSON_MARSHALLER)));
+                                      }));
    }
 
    private static Route handleError(final Throwable e) {
@@ -108,7 +106,6 @@ public final class Routes {
       return entity(Jackson.unmarshaller(GoldenRecordUpdateRequestPayload.class),
                     payload -> payload != null
                           ? onComplete(Ask.updateGoldenRecord(actorSystem, backEnd, payload),
-
                                        result -> {
                                           if (result.isSuccess()) {
                                              final var updatedFields = result.get()
@@ -148,7 +145,7 @@ public final class Routes {
       return entity(Jackson.unmarshaller(ApiModels.ApiOffsetSearch.class), request -> {
          return onComplete(Ask.getGidsPaged(actorSystem, backEnd, request.offset(), request.length()),
                            result -> {
-                              if (!result.isSuccess()) {
+                              if (result.isFailure()) {
                                  return handleError(result.failed().get());
                               }
                               return complete(StatusCodes.OK, result.get(), JSON_MARSHALLER);
@@ -163,7 +160,7 @@ public final class Routes {
          final String gid = request.gid();
          return onComplete(Ask.getGoldenRecordAuditTrail(actorSystem, backEnd, gid),
                            result -> {
-                              if (!result.isSuccess()) {
+                              if (result.isFailure()) {
                                  return handleError(result.failed().get());
                               }
                               return complete(StatusCodes.OK, result.get().auditTrail(), JSON_MARSHALLER);
@@ -177,7 +174,7 @@ public final class Routes {
       return entity(Jackson.unmarshaller(ApiModels.ApiInteractionUid.class),
                     obj -> onComplete(Ask.getInteractionAuditTrail(actorSystem, backEnd, obj.uid()),
                                       result -> {
-                                         if (!result.isSuccess()) {
+                                         if (result.isFailure()) {
                                             return handleError(result.failed().get());
                                          }
                                          return complete(StatusCodes.OK, result.get().auditTrail(), JSON_MARSHALLER);
@@ -189,7 +186,7 @@ public final class Routes {
          final ActorRef<BackEnd.Event> backEnd) {
       return onComplete(Ask.countGoldenRecords(actorSystem, backEnd),
                         result -> {
-                           if (!result.isSuccess()) {
+                           if (result.isFailure()) {
                               return handleError(result.failed().get());
                            }
                            return result.get()
@@ -197,8 +194,7 @@ public final class Routes {
                                         .mapLeft(MapError::mapError)
                                         .fold(error -> error,
                                               count -> complete(StatusCodes.OK,
-                                                                new ApiModels.ApiGoldenRecordCount(
-                                                                      count),
+                                                                new ApiModels.ApiGoldenRecordCount(count),
                                                                 JSON_MARSHALLER));
                         });
    }
@@ -208,7 +204,7 @@ public final class Routes {
          final ActorRef<BackEnd.Event> backEnd) {
       return onComplete(Ask.countInteractions(actorSystem, backEnd),
                         result -> {
-                           if (!result.isSuccess()) {
+                           if (result.isFailure()) {
                               return handleError(result.failed().get());
                            }
                            return result.get()
@@ -216,8 +212,7 @@ public final class Routes {
                                         .mapLeft(MapError::mapError)
                                         .fold(error -> error,
                                               count -> complete(StatusCodes.OK,
-                                                                new ApiModels.ApiInteractionCount(
-                                                                      count),
+                                                                new ApiModels.ApiInteractionCount(count),
                                                                 JSON_MARSHALLER));
                         });
    }
@@ -225,32 +220,32 @@ public final class Routes {
    private static Route getGidsAll(
          final ActorSystem<Void> actorSystem,
          final ActorRef<BackEnd.Event> backEnd) {
-      return onComplete(Ask.getGidsAll(actorSystem, backEnd),
-                        result -> {
-                           if (!result.isSuccess()) {
-                              return handleError(result.failed().get());
-                           }
-                           return complete(StatusCodes.OK, result.get(), JSON_MARSHALLER);
-                        });
+      return onComplete(Ask.getGidsAll(actorSystem, backEnd), result -> {
+         if (result.isFailure()) {
+            return handleError(result.failed().get());
+         }
+         return result.get()
+                      .records()
+                      .mapLeft(MapError::mapError)
+                      .fold(error -> error,
+                            list -> complete(StatusCodes.OK, list, JSON_MARSHALLER));
+      });
    }
 
    private static Route postCrFindSourceId(
          final ActorSystem<Void> actorSystem,
          final ActorRef<BackEnd.Event> backEnd) {
-      return parameter("facility",
-                       facility -> parameter("client",
-                                             client -> onComplete(Ask.findExpandedSourceId(actorSystem,
-                                                                                           backEnd,
-                                                                                           facility,
-                                                                                           client),
-                                                                  result -> {
-                                                                     if (!result.isSuccess()) {
-                                                                        return handleError(result.failed().get());
-                                                                     }
-                                                                     return complete(StatusCodes.OK,
-                                                                                     result.get(),
-                                                                                     JSON_MARSHALLER);
-                                                                  })));
+      return parameter("facility", facility -> parameter("client", client -> onComplete(
+            Ask.findExpandedSourceId(actorSystem, backEnd, facility, client), result -> {
+               if (result.isFailure()) {
+                  return handleError(result.failed().get());
+               }
+               return result.get()
+                            .records()
+                            .mapLeft(MapError::mapError)
+                            .fold(error -> error,
+                                  list -> complete(StatusCodes.OK, list, JSON_MARSHALLER));
+            })));
    }
 
    private static Route getNotifications(
@@ -260,7 +255,7 @@ public final class Routes {
          return onComplete(
                Ask.getNotifications(actorSystem, backEnd, requestData),
                result -> {
-                  if (!result.isSuccess()) {
+                  if (result.isFailure()) {
                      return handleError(result.failed().get());
                   }
                   return complete(StatusCodes.OK, result.get(), JSON_MARSHALLER);
@@ -274,7 +269,7 @@ public final class Routes {
       return entity(Jackson.unmarshaller(ApiModels.ApiExpandedGoldenRecordsParameterList.class),
                     request -> onComplete(Ask.getExpandedGoldenRecords(actorSystem, backEnd, request.uidList()),
                                           result -> {
-                                             if (!result.isSuccess()) {
+                                             if (result.isFailure()) {
                                                 return handleError(result.failed().get());
                                              }
                                              return result.get()
@@ -295,7 +290,7 @@ public final class Routes {
       return entity(Jackson.unmarshaller(ApiModels.ApiExpandedGoldenRecordsParameterList.class),
                     request -> onComplete(Ask.getExpandedGoldenRecords(actorSystem, backEnd, request.uidList()),
                                           result -> {
-                                             if (!result.isSuccess()) {
+                                             if (result.isFailure()) {
                                                 return handleError(result.failed().get());
                                              }
                                              return result.get()
@@ -337,7 +332,7 @@ public final class Routes {
       return entity(Jackson.unmarshaller(ApiModels.ApiGoldenRecords.class),
                     request -> onComplete(Ask.getExpandedGoldenRecord(actorSystem, backEnd, request.gid()),
                                           result -> {
-                                             if (!result.isSuccess()) {
+                                             if (result.isFailure()) {
                                                 return handleError(result.failed().get());
                                              }
                                              return result.get()
@@ -358,7 +353,7 @@ public final class Routes {
       return entity(Jackson.unmarshaller(ApiInteraction.class),
                     request -> onComplete(Ask.getInteraction(actorSystem, backEnd, request.uid()),
                                           result -> {
-                                             if (!result.isSuccess()) {
+                                             if (result.isFailure()) {
                                                 return handleError(result.failed().get());
                                              }
                                              return result.get()
@@ -456,7 +451,7 @@ public final class Routes {
       LOGGER.info("Filter Guids");
       return entity(Jackson.unmarshaller(OBJECT_MAPPER, FilterGidsRequestPayload.class),
                     searchParameters -> onComplete(() -> Ask.postFilterGids(actorSystem, backEnd, searchParameters), response -> {
-                       if (!response.isSuccess()) {
+                       if (response.isFailure()) {
                           final var e = response.failed().get();
                           LOGGER.error(e.getLocalizedMessage(), e);
                           return mapError(new MpiServiceError.InternalError(e.getLocalizedMessage()));
@@ -473,7 +468,7 @@ public final class Routes {
                     searchParameters -> onComplete(() -> Ask.postFilterGidsWithInteractionCount(actorSystem,
                                                                                                 backEnd,
                                                                                                 searchParameters), response -> {
-                       if (!response.isSuccess()) {
+                       if (response.isFailure()) {
                           final var e = response.failed().get();
                           LOGGER.error(e.getLocalizedMessage(), e);
                           return mapError(new MpiServiceError.InternalError(e.getLocalizedMessage()));
@@ -494,7 +489,7 @@ public final class Routes {
             return Ask.postCustomSearchInteractions(actorSystem, backEnd, searchParameters);
          }
       }, response -> {
-         if (!response.isSuccess()) {
+         if (response.isFailure()) {
             final var e = response.failed().get();
             LOGGER.error(e.getLocalizedMessage(), e);
             return mapError(new MpiServiceError.InternalError(e.getLocalizedMessage()));
@@ -542,7 +537,7 @@ public final class Routes {
          final ActorRef<BackEnd.Event> backEnd) {
       return onComplete(Ask.getConfiguration(actorSystem, backEnd),
                         result -> {
-                           if (!result.isSuccess()) {
+                           if (result.isFailure()) {
                               return handleError(result.failed().get());
                            }
                            return complete(StatusCodes.OK, result.get().configuration(), JSON_MARSHALLER);
@@ -554,7 +549,7 @@ public final class Routes {
          final ActorRef<BackEnd.Event> backEnd) {
       return onComplete(Ask.getFieldsConfiguration(actorSystem, backEnd),
                         result -> {
-                           if (!result.isSuccess()) {
+                           if (result.isFailure()) {
                               return handleError(result.failed().get());
                            }
                            return complete(StatusCodes.OK, result.get().fields(), JSON_MARSHALLER);
@@ -566,7 +561,7 @@ public final class Routes {
          final ActorRef<BackEnd.Event> backEnd) {
       return entity(Jackson.unmarshaller(Configuration.class),
                     configuration -> onComplete(Ask.postConfiguration(actorSystem, backEnd, configuration), response -> {
-                       if (!response.isSuccess()) {
+                       if (response.isFailure()) {
                           final var e = response.failed().get();
                           LOGGER.error(e.getLocalizedMessage(), e);
                           return mapError(new MpiServiceError.InternalError(

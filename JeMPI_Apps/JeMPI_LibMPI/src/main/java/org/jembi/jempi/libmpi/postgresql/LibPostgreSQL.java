@@ -113,11 +113,13 @@ public final class LibPostgreSQL implements LibMPIClientInterface {
 
    @Override
    public Either<MpiGeneralError, PaginatedResultSet<ExpandedGoldenRecord>> findExpandedGoldenRecords(final List<String> goldenIds) {
+      LOGGER.debug("findExpandedGoldenRecords");
       return PsqlQueries.findExpandedGoldenRecords(psqlClient, goldenIds);
    }
 
    @Override
    public Either<MpiGeneralError, List<String>> findGoldenIds() {
+      LOGGER.debug("findGoldenIds");
       return PsqlQueries.findGoldenIds(psqlClient);
    }
 
@@ -131,6 +133,7 @@ public final class LibPostgreSQL implements LibMPIClientInterface {
 
    @Override
    public Either<MpiGeneralError, List<GoldenRecord>> findLinkCandidates(final DemographicData demographicData) {
+      LOGGER.debug("findLinkCandidates");
       return PsqlQueries.findLinkCandidates(psqlClient, demographicData);
    }
 
@@ -153,6 +156,7 @@ public final class LibPostgreSQL implements LibMPIClientInterface {
          final Integer limit,
          final String sortBy,
          final Boolean sortAsc) {
+      LOGGER.debug("simpleSearchGoldenRecords");
       return PsqlQueries.simpleSearchGoldenRecords(psqlClient, params, offset, limit, sortBy, sortAsc);
    }
 
