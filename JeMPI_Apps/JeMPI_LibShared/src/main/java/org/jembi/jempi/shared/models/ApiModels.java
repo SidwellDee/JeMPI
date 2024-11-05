@@ -10,9 +10,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
 import java.sql.Timestamp;
-
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -111,17 +110,19 @@ public abstract class ApiModels {
          @JsonProperty("uniqueGoldenRecordData") JsonNode auxInteractionData,
          @JsonProperty("demographicData") JsonNode demographicData) {
    }
+
    @JsonInclude(JsonInclude.Include.NON_NULL)
    public record RestoreInteraction(
-           @JsonProperty("uid") String uid,
-           @JsonProperty("sourceId") SourceId sourceId,
-           @JsonProperty("uniqueInteractionData") JsonNode auxInteractionData,
-           @JsonProperty("demographicData") JsonNode demographicData) {
+         @JsonProperty("uid") String uid,
+         @JsonProperty("sourceId") SourceId sourceId,
+         @JsonProperty("uniqueInteractionData") JsonNode auxInteractionData,
+         @JsonProperty("demographicData") JsonNode demographicData) {
    }
+
    @JsonInclude(JsonInclude.Include.NON_NULL)
    public record RestoreInteractionRecord(
-           @JsonProperty("interaction") RestoreInteraction interaction,
-           @JsonProperty("score") Float score) {
+         @JsonProperty("interaction") RestoreInteraction interaction,
+         @JsonProperty("score") Float score) {
    }
 
    @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -292,10 +293,12 @@ public abstract class ApiModels {
          @JsonProperty("uniqueGoldenRecordData") JsonNode auxGoldenRecordData,
          @JsonProperty("demographicData") JsonNode demographicData) {
       public static ApiGoldenRecord fromGoldenRecord(final GoldenRecord goldenRecord) {
-         return new ApiGoldenRecord(goldenRecord.goldenId(),
-                                    goldenRecord.sourceId(),
-                                    AuxGoldenRecordData.fromAuxGoldenRecordData(goldenRecord.auxGoldenRecordData()),
-                                    DemographicData.fromDemographicData(goldenRecord.demographicData()));
+         return goldenRecord == null
+               ? null
+               : new ApiGoldenRecord(goldenRecord.goldenId(),
+                                     goldenRecord.sourceId(),
+                                     AuxGoldenRecordData.fromAuxGoldenRecordData(goldenRecord.auxGoldenRecordData()),
+                                     DemographicData.fromDemographicData(goldenRecord.demographicData()));
       }
    }
 
@@ -396,14 +399,14 @@ public abstract class ApiModels {
          Timestamp startDate,
          Timestamp endDate,
          List<String> states
-         ) {
+   ) {
    }
 
    @JsonInclude(JsonInclude.Include.NON_NULL)
    public record ApiInteractionUid(
          String uid
-         ) {
-         }
+   ) {
+   }
 
    @JsonInclude(JsonInclude.Include.NON_NULL)
    public record ApiGoldenRecords(
@@ -429,12 +432,13 @@ public abstract class ApiModels {
          LinkInfo linkInfo,
          List<ExternalLinkCandidate> externalLinkCandidateList) {
    }
+
    @JsonInclude(JsonInclude.Include.NON_NULL)
    public record ApiOffsetSearch(
          long offset,
          long length,
          String sortBy,
          Boolean sortAsc) {
-         }
+   }
 
 }

@@ -316,7 +316,7 @@ public final class Routes {
       return entity(Jackson.unmarshaller(ApiModels.ApiExpandedGoldenRecordsParameterList.class),
                     request -> onComplete(Ask.getExpandedInteractions(actorSystem, backEnd, request.uidList()),
                                           result -> {
-                                             if (!result.isSuccess()) {
+                                             if (result.isFailure()) {
                                                 return handleError(result.failed().get());
                                              }
                                              return result.get()

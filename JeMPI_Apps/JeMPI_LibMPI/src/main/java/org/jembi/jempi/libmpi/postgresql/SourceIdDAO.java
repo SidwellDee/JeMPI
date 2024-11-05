@@ -91,7 +91,7 @@ public final class SourceIdDAO extends GenericDAO<SourceIdDAO.SqlSourceId> {
       return entity;
    }
 
-   List<SourceIdDAO.SqlSourceId> getSourceUdsForGoldenId(
+   List<SourceIdDAO.SqlSourceId> getSourceIdsForGoldenId(
          final PsqlClient client,
          final UUID id) throws SQLException {
       final var sql = "select * from source_id where golden_record_uid = ?;";

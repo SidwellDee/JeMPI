@@ -101,8 +101,8 @@ public final class LibPostgreSQL implements LibMPIClientInterface {
 
    @Override
    public Either<MpiGeneralError, List<ExpandedInteraction>> findExpandedInteractions(final List<String> interactionIDs) {
-      LOGGER.error("LibPostgreSQL findExpandedInteractions error");
-      return Either.left(new MpiServiceError.NotImplementedError("findExpandedInteractions"));
+      LOGGER.debug("findExpandedInteractions");
+      return PsqlQueries.findExpandedInteractions(psqlClient, interactionIDs);
    }
 
    @Override

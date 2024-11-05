@@ -110,7 +110,7 @@ public final class EncounterDAO extends GenericDAO<EncounterDAO.SqlEncounter> {
                   rs.getString(Config.FIELDS_CONFIG.demographicFields.get(9).scName()),
                   rs.getString(Config.FIELDS_CONFIG.demographicFields.get(10).scName()),
                   rs.getString(Config.FIELDS_CONFIG.demographicFields.get(11).scName()),
-                  id,
+                  rs.getObject("golden_record_uid", UUID.class),
                   rs.getFloat("score"),
                   rs.getObject("source_id_uid", UUID.class),
                   rs.getTimestamp(Config.FIELDS_CONFIG.auxInteractionFields.get(0).scName()).toLocalDateTime(),
