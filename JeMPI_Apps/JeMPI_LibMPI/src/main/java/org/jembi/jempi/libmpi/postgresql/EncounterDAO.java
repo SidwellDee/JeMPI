@@ -35,8 +35,8 @@ public final class EncounterDAO extends GenericDAO<EncounterDAO.SqlEncounter> {
                             cell_phone,
                             inkhundla,
                             chiefdom,
-                            nationality,
                             city,
+                            nationality,
                             golden_record_uid,
                             score,
                             source_id_uid,
@@ -202,8 +202,8 @@ public final class EncounterDAO extends GenericDAO<EncounterDAO.SqlEncounter> {
          String cellPhone,
          String inkhundla,
          String chiefdom,
-         String nationality,
          String city,
+         String nationality,
          UUID goldenRecordUid,
          float score,
          UUID sourceIdUid,
@@ -231,8 +231,8 @@ public final class EncounterDAO extends GenericDAO<EncounterDAO.SqlEncounter> {
             case 7 -> cellPhone();
             case 8 -> inkhundla();
             case 9 -> chiefdom();
-            case 10 -> nationality();
-            case 11 -> city();
+            case 10 -> city();
+            case 11 -> nationality();
             default -> throw new IllegalArgumentException();
          };
       }
