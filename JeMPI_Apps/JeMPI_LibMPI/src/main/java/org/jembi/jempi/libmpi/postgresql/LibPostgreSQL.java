@@ -213,8 +213,7 @@ public final class LibPostgreSQL implements LibMPIClientInterface {
 
    @Override
    public Either<MpiGeneralError, PaginatedResultSet<GoldenRecord>> apiCrFindGoldenRecords(final ApiModels.ApiCrFindRequest request) {
-      LOGGER.error("LibPostgreSQL apiCrFindGoldenRecords error");
-      return Either.left(new MpiServiceError.NotImplementedError("apiCrFindGoldenRecords"));
+      return PsqlQueries.getGoldenRecord(psqlClient, request);
    }
 
    @Override

@@ -212,6 +212,37 @@ public final class GoldenRecordDAO extends GenericDAO<GoldenRecordDAO.SqlGoldenR
       return list;
    }
 
+   List<SqlGoldenRecord> findExactDemographics(
+         final PsqlClient client,
+         final String sql) throws SQLException {
+      final var list = new LinkedList<SqlGoldenRecord>();
+
+      PreparedStatement pstmt = client.prepareStatement(sql);
+
+      final var rs = pstmt.executeQuery();
+      while (rs.next()) {
+         list.add(new SqlGoldenRecord(
+               rs.getObject("uid", java.util.UUID.class),
+               rs.getString(Config.FIELDS_CONFIG.demographicFields.get(0).scName()),
+               rs.getString(Config.FIELDS_CONFIG.demographicFields.get(1).scName()),
+               rs.getString(Config.FIELDS_CONFIG.demographicFields.get(2).scName()),
+               rs.getString(Config.FIELDS_CONFIG.demographicFields.get(3).scName()),
+               rs.getString(Config.FIELDS_CONFIG.demographicFields.get(4).scName()),
+               rs.getString(Config.FIELDS_CONFIG.demographicFields.get(5).scName()),
+               rs.getString(Config.FIELDS_CONFIG.demographicFields.get(6).scName()),
+               rs.getString(Config.FIELDS_CONFIG.demographicFields.get(7).scName()),
+               rs.getString(Config.FIELDS_CONFIG.demographicFields.get(8).scName()),
+               rs.getString(Config.FIELDS_CONFIG.demographicFields.get(9).scName()),
+               rs.getString(Config.FIELDS_CONFIG.demographicFields.get(10).scName()),
+               rs.getString(Config.FIELDS_CONFIG.demographicFields.get(11).scName()),
+               rs.getTimestamp(Config.FIELDS_CONFIG.auxGoldenRecordFields.get(0).scName()).toLocalDateTime(),
+               rs.getBoolean(Config.FIELDS_CONFIG.auxGoldenRecordFields.get(1).scName()),
+               rs.getString(Config.FIELDS_CONFIG.userAuxGoldenRecordFields.getFirst().scName())));
+      }
+
+      return list;
+   }
+
    List<SqlGoldenRecord> findLinkCandidates(
          final PsqlClient client,
          final DemographicData demographicData) throws SQLException {

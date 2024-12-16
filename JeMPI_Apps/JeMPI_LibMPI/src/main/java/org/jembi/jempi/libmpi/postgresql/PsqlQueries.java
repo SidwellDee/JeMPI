@@ -9,8 +9,10 @@ import org.jembi.jempi.libmpi.MpiServiceError;
 import org.jembi.jempi.libmpi.common.PaginatedResultSet;
 import org.jembi.jempi.shared.config.Config;
 import org.jembi.jempi.shared.models.*;
+import org.jembi.jempi.shared.utils.AppUtils;
 
 import java.sql.SQLException;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
@@ -63,6 +65,84 @@ final class PsqlQueries {
          return Either.left(new MpiServiceError.InternalError(e.getMessage()));
       }
       return Either.right(goldenRecord);
+   }
+
+   static Either<MpiGeneralError, PaginatedResultSet<GoldenRecord>> getGoldenRecord(
+         final PsqlClient psqlClient,
+         final ApiModels.ApiCrFindRequest req) {
+
+      List<GoldenRecord> goldenRecords;
+      try {
+         psqlClient.connect();
+         final var setFunctions = new HashSet<String>();
+         setFunctions.add("eq");
+         setFunctions.add("match");
+         final var setOperators = new HashSet<String>();
+         setOperators.add("and");
+         setOperators.add("or");
+
+         final var operand = req.operand();
+         final var queryBuilder =
+               new StringBuilder("select * from golden_records where ").append(AppUtils.camelToSnake(operand.name()))
+                                                                       .append("='").append(operand.value()).append("'");
+         if (req.operands() != null) {
+            for (ApiModels.ApiCrFindRequest.ApiLogicalOperand op2 : req.operands()) {
+               queryBuilder
+                     .append(" ")
+                     .append(op2.operator())
+                     .append(" ")
+                     .append(AppUtils.camelToSnake(op2.operand().name()))
+                     .append("='")
+                     .append(op2.operand().value())
+                     .append("'");
+            }
+         }
+
+         final var query = queryBuilder.toString();
+
+         goldenRecords = findGoldenRecord(psqlClient, query);
+      } catch (SQLException | MpiException e) {
+         LOGGER.error(e.getMessage(), e);
+         return Either.left(new MpiServiceError.InternalError(e.getMessage()));
+      }
+
+      return Either.right(new PaginatedResultSet<>(goldenRecords, List.of(new LibMPIPagination(goldenRecords.size()))));
+   }
+
+   private static List<GoldenRecord> findGoldenRecord(
+         final PsqlClient psqlClient,
+         final String query) {
+      List<GoldenRecord> goldenRecords = new LinkedList<>();
+
+      try{
+         final var sqlGoldenRecords = GOLDEN_RECORD_DAO.findExactDemographics(psqlClient, query);
+
+         for (GoldenRecordDAO.SqlGoldenRecord candidate : sqlGoldenRecords) {
+            final var demographicFields = new DemographicData();
+            for (int i = 0; i < Config.FIELDS_CONFIG.demographicFields.size(); i++) {
+               demographicFields.fields.add(
+                     new DemographicData.DemographicField(
+                           Config.FIELDS_CONFIG.demographicFields.get(i).ccName(),
+                           candidate.getDemographicField(i)));
+            }
+            final List<AuxGoldenRecordData.AuxGoldenRecordUserField> auxGoldenRecordUserFields = new LinkedList<>();
+            auxGoldenRecordUserFields.add(new AuxGoldenRecordData.AuxGoldenRecordUserField("aux_id", candidate.auxId()));
+            final var auxGoldenRecordData = new AuxGoldenRecordData(
+                  candidate.auxDateCreated(),
+                  candidate.auxAutoUpdate(),
+                  auxGoldenRecordUserFields
+            );
+            final var goldenRecord = new GoldenRecord(candidate.uid().toString(),
+                                                      null,
+                                                      auxGoldenRecordData,
+                                                      demographicFields);
+            goldenRecords.add(goldenRecord);
+         }
+      } catch (SQLException e) {
+         LOGGER.error(e.getLocalizedMessage(), e);
+      }
+
+      return goldenRecords;
    }
 
    private static List<InteractionWithScore> getInteractionsWithScore(
