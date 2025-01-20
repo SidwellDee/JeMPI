@@ -82,23 +82,37 @@ final class PsqlQueries {
          setOperators.add("or");
 
          final var operand = req.operand();
-         final var queryBuilder =
-               new StringBuilder("select * from golden_records where ").append(AppUtils.camelToSnake(operand.name()))
-                                                                       .append("='").append(operand.value()).append("'");
+         StringBuilder queryBuilder;
+         if (operand.name().equals("pin")) {
+            queryBuilder =
+                  new StringBuilder("select * from golden_records "
+                                    + "inner join source_id on golden_records.uid = source_id.golden_record_uid "
+                                    + "where '").append(operand.value())
+                                             .append("' in(pin,patient_id)");
+         } else {
+            queryBuilder =
+                  new StringBuilder("select * from golden_records where ").append(AppUtils.camelToSnake(operand.name()))
+                                                                          .append("='").append(operand.value()).append("'");
+         }
+
          if (req.operands() != null) {
             for (ApiModels.ApiCrFindRequest.ApiLogicalOperand op2 : req.operands()) {
-               queryBuilder
-                     .append(" ")
-                     .append(op2.operator())
-                     .append(" ")
-                     .append(AppUtils.camelToSnake(op2.operand().name()))
-                     .append("='")
-                     .append(op2.operand().value())
-                     .append("'");
+               if (!op2.operand().name().equals(operand.name())) {
+                  queryBuilder
+                        .append(" ")
+                        .append(op2.operator())
+                        .append(" ")
+                        .append(AppUtils.camelToSnake(op2.operand().name()))
+                        .append("='")
+                        .append(op2.operand().value())
+                        .append("'");
+               }
             }
          }
 
          final var query = queryBuilder.toString();
+
+         LOGGER.info("PSQL QUERY: {}", query);
 
          goldenRecords = findGoldenRecord(psqlClient, query);
       } catch (SQLException | MpiException e) {
