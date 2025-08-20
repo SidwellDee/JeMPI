@@ -91,8 +91,8 @@ final class PsqlQueries {
                                              .append("' in(pin,patient_id)");
          } else {
             queryBuilder =
-                  new StringBuilder("select * from golden_records where ").append(AppUtils.camelToSnake(operand.name()))
-                                                                          .append("='").append(operand.value()).append("'");
+                  new StringBuilder("select * from golden_records where lower(").append(AppUtils.camelToSnake(operand.name()))
+                                                                          .append(") = lower('").append(operand.value()).append("')");
          }
 
          if (req.operands() != null) {
@@ -101,11 +101,11 @@ final class PsqlQueries {
                   queryBuilder
                         .append(" ")
                         .append(op2.operator())
-                        .append(" ")
+                        .append(" lower(")
                         .append(AppUtils.camelToSnake(op2.operand().name()))
-                        .append("='")
+                        .append(") = lower('")
                         .append(op2.operand().value())
-                        .append("'");
+                        .append("')");
                }
             }
          }
