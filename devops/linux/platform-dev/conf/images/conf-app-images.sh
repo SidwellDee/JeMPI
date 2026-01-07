@@ -4,7 +4,7 @@ JAVA_VERSION_X=${JAVA_VERSION}_11
 # https://hub.docker.com/_/eclipse-temurin/tags
 export JAVA_BASE_IMAGE=eclipse-temurin:${JAVA_VERSION_X}-jre-alpine
 
-JEMPI_HUB_NAMESPACE=jembi/jempi
+JEMPI_HUB_NAMESPACE=hmisecmis/jempi
 #JEMPI_TAG="1.0-SNAPSHOT"
 JEMPI_TAG="sd-dev"
 
