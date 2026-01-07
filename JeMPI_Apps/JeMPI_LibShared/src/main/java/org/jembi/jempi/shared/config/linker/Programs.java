@@ -301,7 +301,7 @@ public final class Programs {
                 + rule.vars().stream().map("$%s: string"::formatted).collect(Collectors.joining(","))
                 + """
                   ) {
-                     all(func:type(GoldenRecord)) @filter(eq(GoldenRecord.%s,$%s)) {
+                     all(func:type(GoldenRecord)) @filter((NOT (eq(GoldenRecord.pin,9999999999999) or eq(GoldenRecord.pin,1111111111111))) and eq(GoldenRecord.%s,$%s)) {
                         uid
                         GoldenRecord.source_id {
                            uid
